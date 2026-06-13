@@ -5,13 +5,13 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-env:
-  # Force the runner to use Node 24 as required by the June 16, 2026 deadline
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Force Node 24 to comply with the June 16, 2026 GitHub deadline
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
@@ -35,32 +35,29 @@ jobs:
           npm install
           npm install -g @capacitor/cli
 
+      - name: Clean Environment
+        # This is the "Proper Fix": We remove old folders that might be broken
+        run: |
+          rm -rf android
+          rm -rf www
+          mkdir -p www
+
       - name: Prepare Web Assets
         run: |
-          mkdir -p www
-          # Carefully copy the file with spaces and ampersand
-          cp "image to pdf & image resizer.html" www/index.html || echo "Copy failed, checking if it already exists"
+          # Use single quotes to safely handle the & and spaces in your filename
+          cp 'image to pdf & image resizer.html' www/index.html
           ls -la www/
 
-      - name: Initialize Capacitor Android
+      - name: Build Android Project
         run: |
-          # If the android folder exists but is broken, sync it. 
-          # If it doesn't exist, add it.
-          if [ -d "android" ]; then
-            echo "Android folder exists, syncing..."
-            npx cap sync
-          else
-            echo "Android folder missing, adding platform..."
-            npx cap add android
-            npx cap sync
-          fi
+          # Re-create the android folder from scratch for a perfect build
+          npx cap add android
+          npx cap sync android
 
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
-          # Clean before build to avoid cache issues
-          ./gradlew clean
           ./gradlew assembleDebug
 
       - name: Upload APK
