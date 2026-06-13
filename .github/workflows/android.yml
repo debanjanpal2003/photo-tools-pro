@@ -5,10 +5,6 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-env:
-  # This is the single correct variable for the June 16 transition
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -30,32 +26,32 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Dependencies
+      - name: Total Cleanup
         run: |
-          set -x
-          npm install
-          npm install -g @capacitor/cli
-
-      - name: Fresh Environment Setup
-        run: |
-          set -x
-          # Remove any old/broken folders
           rm -rf android
           rm -rf www
+          rm -rf node_modules
           mkdir -p www
-          # Copy your specific HTML file safely
-          cp 'image to pdf & image resizer.html' www/index.html
+
+      - name: Install Dependencies
+        run: |
+          npm install
+          npm install @capacitor/core @capacitor/android
+          npm install -D @capacitor/cli
+
+      - name: Prepare Assets
+        run: |
+          # Find any HTML file and make it the main index
+          cp *.html www/index.html || echo "No HTML file found"
           ls -la www/
 
-      - name: Create Android Project
+      - name: Create Native Project
         run: |
-          set -x
           npx cap add android
           npx cap sync android
 
-      - name: Build APK
+      - name: Build Final APK
         run: |
-          set -x
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
