@@ -5,9 +5,6 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,7 +15,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
+
+      - name: Debug - List Files
+        run: ls -R
+
+      - name: Install Capacitor CLI
+        run: npm install -g @capacitor/cli
 
       - name: Install Dependencies
         run: npm install
@@ -31,6 +34,13 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Prepare Web Assets
+        run: |
+          mkdir -p www
+          if [ ! -f "www/index.html" ]; then
+            cp "image to pdf & image resizer.html" www/index.html || echo "Source file not found"
+          fi
 
       - name: Initialize Capacitor Android
         run: |
