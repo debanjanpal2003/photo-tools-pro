@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>Photo Tools Pro - PDF & Resizer</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <script src="capacitor.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
@@ -1467,12 +1470,50 @@
             }
         }
 
-        window.downloadFile = (url, name) => {
+        async function downloadFile(url, name) {
+            // Check if running on Android/iOS via Capacitor
+            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                try {
+                    const Filesystem = Capacitor.Plugins.Filesystem;
+                    const Share = Capacitor.Plugins.Share;
+                    
+                    // Convert blob/url to base64
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    
+                    return new Promise((resolve) => {
+                        reader.onloadend = async () => {
+                            const base64Data = reader.result.split(',')[1];
+                            const fileName = name;
+                            
+                            const result = await Filesystem.writeFile({
+                                path: fileName,
+                                data: base64Data,
+                                directory: 'CACHE'
+                            });
+                            
+                            await Share.share({
+                                title: fileName,
+                                url: result.uri,
+                            });
+                            resolve();
+                        };
+                        reader.readAsDataURL(blob);
+                    });
+                } catch (e) {
+                    console.error('Native download failed', e);
+                }
+            }
+
+            // Fallback for Web/Browser
             const link = document.createElement('a');
             link.href = url;
             link.download = name;
             link.click();
-        };
+        }
+
+        window.downloadFile = downloadFile;
 
         function addResizeFiles(files) {
             const valid = Array.from(files).filter(f => f.type.startsWith('image/'));
@@ -1644,9 +1685,8 @@
                         e.preventDefault();
                         const html = createPrintHtml(r.images, formatSize(r.finalSize));
                         const blob = new Blob([html], { type: 'text/html' });
-                        const link = document.createElement('a');
-                        link.href = URL.createObjectURL(blob);
-                        link.download = `resized_${r.name.replace('.pdf', '')}.html`;
+                        const url = URL.createObjectURL(blob);
+                        downloadFile(url, `resized_${r.name.replace('.pdf', '')}.html`);
                         link.click();
                     };
                     listDiv.appendChild(item);
@@ -1691,19 +1731,15 @@
         togglePdfResizeMode();
         
         console.log('Photo Tools Pro Loaded Successfully!');
-    </script>
-</body>
-</html>
-);
-                tabs[2].classList.add('active');
-            }
-        };
 
-        // Initial setup
-        toggleResizeMode();
-        togglePdfResizeMode();
-        
-        console.log('Photo Tools Pro Loaded Successfully!');
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker failed', err));
+            });
+        }
     </script>
 </body>
 </html>
