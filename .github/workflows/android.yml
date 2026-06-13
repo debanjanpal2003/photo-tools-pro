@@ -5,14 +5,13 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  # This is the single correct variable for the June 16 transition
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # Bypass the June 16 Node 24 deprecation errors
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-    
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
@@ -33,26 +32,30 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          set -x
           npm install
           npm install -g @capacitor/cli
 
       - name: Fresh Environment Setup
-        # Forcefully remove everything to prevent conflicts
         run: |
+          set -x
+          # Remove any old/broken folders
           rm -rf android
           rm -rf www
           mkdir -p www
-          # Copy any HTML file to www/index.html (safely handles & and spaces)
-          find . -maxdepth 1 -name "*.html" -exec cp {} www/index.html \;
+          # Copy your specific HTML file safely
+          cp 'image to pdf & image resizer.html' www/index.html
           ls -la www/
 
       - name: Create Android Project
         run: |
+          set -x
           npx cap add android
           npx cap sync android
 
       - name: Build APK
         run: |
+          set -x
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
