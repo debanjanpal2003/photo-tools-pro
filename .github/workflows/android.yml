@@ -5,6 +5,10 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  # Force the runner to use Node 24 as required by the June 16, 2026 deadline
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,16 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-
-      - name: Debug - List Files
-        run: ls -R
-
-      - name: Install Capacitor CLI
-        run: npm install -g @capacitor/cli
-
-      - name: Install Dependencies
-        run: npm install
+          node-version: 24
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -35,24 +30,37 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Dependencies
+        run: |
+          npm install
+          npm install -g @capacitor/cli
+
       - name: Prepare Web Assets
         run: |
           mkdir -p www
-          if [ ! -f "www/index.html" ]; then
-            cp "image to pdf & image resizer.html" www/index.html || echo "Source file not found"
-          fi
+          # Carefully copy the file with spaces and ampersand
+          cp "image to pdf & image resizer.html" www/index.html || echo "Copy failed, checking if it already exists"
+          ls -la www/
 
       - name: Initialize Capacitor Android
         run: |
-          if [ ! -d "android" ]; then
+          # If the android folder exists but is broken, sync it. 
+          # If it doesn't exist, add it.
+          if [ -d "android" ]; then
+            echo "Android folder exists, syncing..."
+            npx cap sync
+          else
+            echo "Android folder missing, adding platform..."
             npx cap add android
+            npx cap sync
           fi
-          npx cap sync
 
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
+          # Clean before build to avoid cache issues
+          ./gradlew clean
           ./gradlew assembleDebug
 
       - name: Upload APK
