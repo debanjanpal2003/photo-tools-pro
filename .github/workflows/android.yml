@@ -8,8 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Force Node 24 to comply with the June 16, 2026 GitHub deadline
     env:
+      # Bypass the June 16 Node 24 deprecation errors
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     
     steps:
@@ -35,22 +36,18 @@ jobs:
           npm install
           npm install -g @capacitor/cli
 
-      - name: Clean Environment
-        # This is the "Proper Fix": We remove old folders that might be broken
+      - name: Fresh Environment Setup
+        # Forcefully remove everything to prevent conflicts
         run: |
           rm -rf android
           rm -rf www
           mkdir -p www
-
-      - name: Prepare Web Assets
-        run: |
-          # Use single quotes to safely handle the & and spaces in your filename
-          cp 'image to pdf & image resizer.html' www/index.html
+          # Copy any HTML file to www/index.html (safely handles & and spaces)
+          find . -maxdepth 1 -name "*.html" -exec cp {} www/index.html \;
           ls -la www/
 
-      - name: Build Android Project
+      - name: Create Android Project
         run: |
-          # Re-create the android folder from scratch for a perfect build
           npx cap add android
           npx cap sync android
 
