@@ -1,0 +1,1708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Photo Tools Pro - PDF & Resizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 24px;
+        }
+        
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .header p {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 60px;
+            padding: 4px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px 16px;
+            background: transparent;
+            color: white;
+            border: none;
+            border-radius: 60px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            display: none;
+        }
+        
+        .content-card.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 20px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area:hover, .upload-area.drag-over {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+        
+        .preview-item {
+            position: relative;
+            background: #f9f9f9;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        
+        .preview-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+        }
+        
+        .preview-item .filename {
+            padding: 6px;
+            font-size: 10px;
+            color: #666;
+            text-align: center;
+            background: white;
+            word-break: break-all;
+        }
+
+        .pdf-preview-item {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        .pdf-preview-info {
+            flex: 1;
+            font-size: 13px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 4px;
+            padding: 6px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 6px;
+            font-size: 11px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #f0f0f0;
+        }
+        
+        .rotate-btn {
+            background: #28a745;
+            color: white;
+        }
+        
+        .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(220,53,69,0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 10;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            flex: 1;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .size-control {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .size-control select, .size-control input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 14px;
+            width: 100%;
+            margin-top: 8px;
+        }
+        
+        .custom-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .custom-group input {
+            flex: 2;
+        }
+        
+        .custom-group select {
+            flex: 1;
+        }
+        
+        .info-text {
+            background: #e7f3ff;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: #004085;
+            margin-top: 16px;
+        }
+        
+        .status {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            display: none;
+        }
+        
+        .status.show {
+            display: block;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 3px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .progress-bar.show {
+            display: block;
+        }
+        
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: #667eea;
+            transition: width 0.3s;
+        }
+        
+        .resizer-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .resizer-section h3 {
+            margin-bottom: 12px;
+            font-size: 16px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .range-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .range-item {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .range-item label {
+            display: block;
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .range-item input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .range-item select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        
+        .dimension-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .dimension-item {
+            flex: 1;
+            min-width: 140px;
+        }
+        
+        .dimension-item label {
+            display: block;
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .dimension-input-group {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .dimension-input-group input {
+            flex: 2;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .dimension-input-group select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 12px;
+            padding-top: 8px;
+            border-top: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #666;
+            cursor: pointer;
+        }
+        
+        .result-box {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .result-box.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .result-table {
+            width: 100%;
+            margin: 15px 0;
+            border-collapse: collapse;
+        }
+        
+        .result-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .result-table td:first-child {
+            font-weight: 600;
+            width: 40%;
+            color: #555;
+        }
+        
+        .result-table td:last-child {
+            color: #333;
+        }
+        
+        .result-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .success-badge {
+            background: #28a745;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        
+        .preview-container {
+            text-align: center;
+            margin-bottom: 20px;
+            display: none;
+            position: relative;
+        }
+        
+        .preview-container.show {
+            display: block;
+        }
+        
+        .preview-container img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .resize-rotate-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        
+        .small-btn {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            margin-left: 8px;
+        }
+
+        .batch-download-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .batch-download-item:last-child {
+            border-bottom: none;
+        }
+
+        .download-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+            
+            .preview-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+            
+            .preview-item img {
+                height: 100px;
+            }
+            
+            button {
+                padding: 10px 16px;
+            }
+            
+            .range-group, .dimension-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span>📸</span>
+                <span>Photo Tools Pro - PDF & Resizer</span>
+            </h1>
+            <p>Convert to PDF • Resize Images • 100% Offline</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('pdf')">📄 Photo to PDF</button>
+            <button class="tab" onclick="switchTab('resize')">📏 Image Resizer</button>
+            <button class="tab" onclick="switchTab('pdfResize')">📉 PDF Resize</button>
+        </div>
+        
+        <!-- PDF Converter Tab -->
+        <div id="pdfTab" class="content-card active">
+            <div class="upload-area" id="pdfUploadArea">
+                <div class="upload-icon">📷</div>
+                <div>Tap to select photos</div>
+                <div style="font-size: 12px; color: #999; margin-top: 8px;">or drag & drop (JPG, PNG, WEBP)</div>
+                <input type="file" id="pdfFileInput" multiple accept="image/jpeg,image/png,image/gif,image/webp,image/bmp" style="display: none;">
+            </div>
+            
+            <div class="size-control">
+                <label>📏 PDF Size Control:</label>
+                <select id="qualityPreset">
+                    <option value="auto">Auto (Original Quality)</option>
+                    <option value="medium" selected>Medium (Balanced - ~1MB/page)</option>
+                    <option value="small">Small (Save Space - ~500KB/page)</option>
+                    <option value="custom">Custom Maximum Size</option>
+                </select>
+                <div id="customSizeDiv" style="display: none; margin-top: 10px;">
+                    <div class="custom-group">
+                        <input type="number" id="customSizeValue" placeholder="Max size" step="any" value="500">
+                        <select id="customSizeUnit">
+                            <option value="KB" selected>KB</option>
+                            <option value="MB">MB</option>
+                        </select>
+                    </div>
+                    <small style="color: #666;">Maximum size per page in final PDF</small>
+                    <div id="sizeWarning" style="color: #856404; background: #fff3cd; padding: 8px; border-radius: 8px; margin-top: 8px; display: none;">
+                        ⚠️ Very small size limit may reduce image quality significantly
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button class="btn-primary" id="generatePdfBtn">✨ Generate PDF</button>
+                <button class="btn-danger" id="clearPdfBtn">🗑️ Clear All</button>
+            </div>
+            
+            <div id="pdfPreviewGrid" class="preview-grid">
+                <div style="text-align: center; padding: 40px; color: #999; grid-column: 1/-1;">No photos added yet</div>
+            </div>
+            
+            <div class="progress-bar" id="pdfProgressBar">
+                <div class="progress-fill" id="pdfProgressFill"></div>
+            </div>
+            
+            <div id="pdfStatus" class="status"></div>
+            <div id="pdfResult" class="result-box"></div>
+            
+            <div class="info-text">
+                🔄 Tap rotate buttons to adjust orientation<br>
+                📌 Drag thumbnails to reorder pages<br>
+                🎨 Original colors preserved<br>
+                🔒 100% offline - no uploads
+            </div>
+        </div>
+        
+        <!-- Image Resizer Tab -->
+        <div id="resizeTab" class="content-card">
+            <div class="resizer-section">
+                <h3>📂 Mode Selection</h3>
+                <div class="checkbox-group">
+                    <label><input type="radio" name="resizeMode" value="single" checked onchange="toggleResizeMode()"> Single Mode</label>
+                    <label><input type="radio" name="resizeMode" value="batch" onchange="toggleResizeMode()"> Batch Mode</label>
+                </div>
+            </div>
+
+            <div class="upload-area" id="resizeUploadArea">
+                <div class="upload-icon">🖼️</div>
+                <div id="resizeUploadText">Tap to select an image</div>
+                <div style="font-size: 12px; color: #999; margin-top: 8px;">JPG, PNG, GIF, WEBP, BMP</div>
+                <input type="file" id="resizeFileInput" accept="image/jpeg,image/png,image/gif,image/webp,image/bmp" style="display: none;">
+            </div>
+            
+            <!-- Single Mode Preview -->
+            <div id="resizePreviewContainer" class="preview-container">
+                <img id="resizePreviewImg" alt="Preview">
+                <div class="resize-rotate-buttons">
+                    <button class="small-btn rotate-btn" id="rotateLeftResize">↺ Rotate Left</button>
+                    <button class="small-btn rotate-btn" id="rotateRightResize">Rotate Right ↻</button>
+                </div>
+            </div>
+
+            <!-- Batch Mode Preview Grid -->
+            <div id="resizeBatchPreviewGrid" class="preview-grid" style="display: none;"></div>
+            
+            <div class="resizer-section">
+                <h3>📊 1. File Size Control <span class="badge">Optional</span></h3>
+                <div class="range-group">
+                    <div class="range-item">
+                        <label>Minimum Size:</label>
+                        <div class="custom-group">
+                            <input type="number" id="minSize" placeholder="Optional" step="any">
+                            <select id="minSizeUnit">
+                                <option value="KB" selected>KB</option>
+                                <option value="MB">MB</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="range-item">
+                        <label>Maximum Size:</label>
+                        <div class="custom-group">
+                            <input type="number" id="maxSize" placeholder="Optional" step="any" value="500">
+                            <select id="maxSizeUnit">
+                                <option value="KB" selected>KB</option>
+                                <option value="MB">MB</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="enableSizeLimit" checked>
+                        Apply file size limits
+                    </label>
+                </div>
+            </div>
+            
+            <div class="resizer-section">
+                <h3>📐 2. Dimension Control <span class="badge">Optional</span></h3>
+                <div class="dimension-group">
+                    <div class="dimension-item">
+                        <label>Min Width x Height:</label>
+                        <div class="dimension-input-group">
+                            <input type="number" id="minWidth" placeholder="Min width" step="1">
+                            <input type="number" id="minHeight" placeholder="Min height" step="1">
+                            <select id="minDimensionUnit">
+                                <option value="px" selected>px</option>
+                                <option value="cm">cm</option>
+                                <option value="in">in</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="dimension-item">
+                        <label>Max Width x Height:</label>
+                        <div class="dimension-input-group">
+                            <input type="number" id="maxWidth" placeholder="Max width" step="1" value="1920">
+                            <input type="number" id="maxHeight" placeholder="Max height" step="1" value="1080">
+                            <select id="maxDimensionUnit">
+                                <option value="px" selected>px</option>
+                                <option value="cm">cm</option>
+                                <option value="in">in</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="enableDimensionLimit" checked>
+                        Apply dimension limits
+                    </label>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button class="btn-success" id="resizeBtn" style="flex: 2;">⚡ Resize Image(s)</button>
+                <button class="btn-danger" id="clearResizeBtn" style="flex: 1;">🗑️ Clear</button>
+            </div>
+            
+            <div class="progress-bar" id="resizeProgressBar">
+                <div class="progress-fill" id="resizeProgressFill"></div>
+            </div>
+            
+            <div id="resizeResult" class="result-box"></div>
+            <div id="resizeStatus" class="status"></div>
+            
+            <div class="info-text">
+                🔄 Rotate images before resizing<br>
+                📏 MIN/MAX limits for both file size AND dimensions<br>
+                🎨 Preserves original colors and aspect ratio<br>
+                ⚡ Works offline - everything processed on your device
+            </div>
+        </div>
+
+        <!-- PDF Resize Tab -->
+        <div id="pdfResizeTab" class="content-card">
+            <div class="resizer-section">
+                <h3>📂 Mode Selection</h3>
+                <div class="checkbox-group">
+                    <label><input type="radio" name="pdfResizeMode" value="single" checked onchange="togglePdfResizeMode()"> Single PDF</label>
+                    <label><input type="radio" name="pdfResizeMode" value="batch" onchange="togglePdfResizeMode()"> Batch Mode</label>
+                </div>
+            </div>
+
+            <div class="upload-area" id="pdfResizeUploadArea">
+                <div class="upload-icon">📄</div>
+                <div id="pdfResizeUploadText">Tap to select a PDF file</div>
+                <div style="font-size: 12px; color: #999; margin-top: 8px;">PDF documents only</div>
+                <input type="file" id="pdfResizeFileInput" accept="application/pdf" style="display: none;">
+            </div>
+            
+            <div id="pdfResizeList" style="margin-bottom: 20px;"></div>
+
+            <div class="resizer-section">
+                <h3>📊 Resize Constraints</h3>
+                <div class="range-group">
+                    <div class="range-item">
+                        <label>Target Maximum Size (per file):</label>
+                        <div class="custom-group">
+                            <input type="number" id="pdfTargetMaxSize" placeholder="Max size" step="any" value="1">
+                            <select id="pdfTargetMaxSizeUnit">
+                                <option value="KB">KB</option>
+                                <option value="MB" selected>MB</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button class="btn-success" id="resizePdfBtn" style="flex: 2;">⚡ Resize PDF(s)</button>
+                <button class="btn-danger" id="clearPdfResizeBtn" style="flex: 1;">🗑️ Clear</button>
+            </div>
+            
+            <div class="progress-bar" id="pdfResizeProgressBar">
+                <div class="progress-fill" id="pdfResizeProgressFill"></div>
+            </div>
+            
+            <div id="pdfResizeResult" class="result-box"></div>
+            <div id="pdfResizeStatus" class="status"></div>
+            
+            <div class="info-text">
+                📉 Resizes PDF by compressing internal images<br>
+                📏 Set target maximum file size for the output<br>
+                🎨 Maintains layout and readability<br>
+                ⚡ Works offline - processed entirely in your browser
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Set worker path for pdf.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // ========== UTILITY FUNCTIONS ==========
+        function formatSize(bytes, showUnit = true) {
+            if (bytes < 1024) return bytes + (showUnit ? ' B' : '');
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + (showUnit ? ' KB' : '');
+            return (bytes / (1024 * 1024)).toFixed(2) + (showUnit ? ' MB' : '');
+        }
+
+        class RotatableImage {
+            constructor(file) {
+                this.file = file;
+                this.rotation = 0;
+                this.dataUrl = null;
+                this.originalSize = file.size;
+            }
+            
+            async load() {
+                if (this.dataUrl && this.rotation === 0) return this.dataUrl;
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    const url = URL.createObjectURL(this.file);
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const isRotated = (this.rotation % 180 !== 0);
+                        canvas.width = isRotated ? img.height : img.width;
+                        canvas.height = isRotated ? img.width : img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.save();
+                        ctx.translate(canvas.width / 2, canvas.height / 2);
+                        ctx.rotate(this.rotation * Math.PI / 180);
+                        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+                        ctx.restore();
+                        this.dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                        URL.revokeObjectURL(url);
+                        resolve(this.dataUrl);
+                    };
+                    img.onerror = reject;
+                    img.src = url;
+                });
+            }
+            
+            async rotate(degrees) {
+                this.rotation = (this.rotation + degrees) % 360;
+                this.dataUrl = null;
+                await this.load();
+            }
+            
+            async getDataUrl(quality) {
+                if (!this.dataUrl) await this.load();
+                if (quality !== 0.95 && this.dataUrl) {
+                    return new Promise((resolve) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            canvas.getContext('2d').drawImage(img, 0, 0);
+                            resolve(canvas.toDataURL('image/jpeg', quality));
+                        };
+                        img.src = this.dataUrl;
+                    });
+                }
+                return this.dataUrl;
+            }
+        }
+        
+        // ========== PDF CONVERTER MODULE ==========
+        let pdfImages = [];
+        let draggedIndex = null;
+        
+        const pdfFileInput = document.getElementById('pdfFileInput');
+        const pdfUploadArea = document.getElementById('pdfUploadArea');
+        const pdfPreviewGrid = document.getElementById('pdfPreviewGrid');
+        const generatePdfBtn = document.getElementById('generatePdfBtn');
+        const clearPdfBtn = document.getElementById('clearPdfBtn');
+        const qualityPreset = document.getElementById('qualityPreset');
+        const customSizeDiv = document.getElementById('customSizeDiv');
+        const customSizeValue = document.getElementById('customSizeValue');
+        const customSizeUnit = document.getElementById('customSizeUnit');
+        const sizeWarning = document.getElementById('sizeWarning');
+        const pdfProgressBar = document.getElementById('pdfProgressBar');
+        const pdfProgressFill = document.getElementById('pdfProgressFill');
+        const pdfStatus = document.getElementById('pdfStatus');
+        const pdfResult = document.getElementById('pdfResult');
+        
+        function showPdfStatus(msg, type) {
+            pdfStatus.textContent = msg;
+            pdfStatus.className = `status show ${type}`;
+            setTimeout(() => pdfStatus.classList.remove('show'), 4000);
+        }
+        
+        function updatePdfProgress(percent) {
+            pdfProgressFill.style.width = percent + '%';
+        }
+        
+        function getMaxSizePerPageKB() {
+            const preset = qualityPreset.value;
+            if (preset === 'auto') return Infinity;
+            if (preset === 'medium') return 1024;
+            if (preset === 'small') return 512;
+            if (preset === 'custom') {
+                let value = parseFloat(customSizeValue.value);
+                if (isNaN(value) || value <= 0) return 1024;
+                if (customSizeUnit.value === 'KB') return value;
+                return value * 1024;
+            }
+            return 1024;
+        }
+        
+        function getQualityFromMaxSize(maxSizeKB) {
+            if (maxSizeKB === Infinity) return 0.95;
+            return Math.min(0.95, Math.max(0.2, maxSizeKB / 5000));
+        }
+        
+        async function renderPdfPreviews() {
+            if (pdfImages.length === 0) {
+                pdfPreviewGrid.innerHTML = '<div style="text-align: center; padding: 40px; color: #999; grid-column: 1/-1;">No photos added yet</div>';
+                pdfResult.classList.remove('show');
+                return;
+            }
+            
+            pdfPreviewGrid.innerHTML = '';
+            
+            for (let i = 0; i < pdfImages.length; i++) {
+                const imgObj = pdfImages[i];
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                item.setAttribute('data-index', i);
+                item.setAttribute('draggable', 'true');
+                
+                const img = document.createElement('img');
+                await imgObj.load();
+                img.src = imgObj.dataUrl;
+                
+                const filename = document.createElement('div');
+                filename.className = 'filename';
+                filename.textContent = imgObj.file.name.length > 25 ? imgObj.file.name.substring(0, 22) + '...' : imgObj.file.name;
+                
+                const actionDiv = document.createElement('div');
+                actionDiv.className = 'action-buttons';
+                
+                const rotateLeft = document.createElement('button');
+                rotateLeft.textContent = '↺ Left';
+                rotateLeft.className = 'action-btn rotate-btn';
+                rotateLeft.onclick = async (e) => {
+                    e.stopPropagation();
+                    await imgObj.rotate(-90);
+                    renderPdfPreviews();
+                    showPdfStatus('Image rotated', 'success');
+                };
+                
+                const rotateRight = document.createElement('button');
+                rotateRight.textContent = 'Right ↻';
+                rotateRight.className = 'action-btn rotate-btn';
+                rotateRight.onclick = async (e) => {
+                    e.stopPropagation();
+                    await imgObj.rotate(90);
+                    renderPdfPreviews();
+                    showPdfStatus('Image rotated', 'success');
+                };
+                
+                actionDiv.appendChild(rotateLeft);
+                actionDiv.appendChild(rotateRight);
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = '✕';
+                removeBtn.className = 'remove-btn';
+                removeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    pdfImages.splice(i, 1);
+                    renderPdfPreviews();
+                    showPdfStatus('Photo removed', 'info');
+                };
+                
+                item.appendChild(img);
+                item.appendChild(filename);
+                item.appendChild(actionDiv);
+                item.appendChild(removeBtn);
+                
+                item.addEventListener('dragstart', (e) => {
+                    draggedIndex = i;
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                item.addEventListener('dragover', (e) => e.preventDefault());
+                item.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (draggedIndex !== null && draggedIndex !== i) {
+                        const [moved] = pdfImages.splice(draggedIndex, 1);
+                        pdfImages.splice(i, 0, moved);
+                        renderPdfPreviews();
+                        showPdfStatus('Reordered', 'info');
+                    }
+                });
+                
+                pdfPreviewGrid.appendChild(item);
+            }
+        }
+        
+        async function generatePDF() {
+            if (pdfImages.length === 0) {
+                showPdfStatus('Please add photos first', 'error');
+                return;
+            }
+            
+            generatePdfBtn.disabled = true;
+            pdfProgressBar.classList.add('show');
+            updatePdfProgress(0);
+            showPdfStatus('Processing images...', 'info');
+            
+            try {
+                const maxSizeKB = getMaxSizePerPageKB();
+                let quality = getQualityFromMaxSize(maxSizeKB);
+                
+                const imagesData = [];
+                for (let i = 0; i < pdfImages.length; i++) {
+                    updatePdfProgress((i / pdfImages.length) * 70);
+                    const data = await pdfImages[i].getDataUrl(quality);
+                    imagesData.push(data);
+                }
+                
+                updatePdfProgress(80);
+                
+                let finalTotalSize = 0;
+                for (let i = 0; i < imagesData.length; i++) {
+                    const base64 = imagesData[i].split(',')[1];
+                    finalTotalSize += Math.ceil(base64.length * 0.75);
+                }
+                
+                let sizeDisplay = formatSize(finalTotalSize);
+                
+                let originalTotalSize = 0;
+                for (const img of pdfImages) {
+                    originalTotalSize += img.originalSize;
+                }
+                const savedPercent = ((originalTotalSize - finalTotalSize) / originalTotalSize * 100).toFixed(1);
+                
+                let targetDisplay = maxSizeKB === Infinity ? 'No limit' : maxSizeKB + ' KB per page';
+                
+                pdfResult.innerHTML = `
+                    <div style="text-align: center;">
+                        <span class="success-badge">✅ PDF Generated Successfully!</span>
+                    </div>
+                    <table class="result-table">
+                        <tr><td>Number of Photos:</td><td><strong>${pdfImages.length}</strong></td></tr>
+                        <tr><td>Original Total Size:</td><td><strong>${formatSize(originalTotalSize)}</strong></td></tr>
+                        <tr><td>Target Limit:</td><td><strong>${targetDisplay}</strong></td></tr>
+                        <tr><td>Final PDF Size:</td><td><strong style="color: #28a745;">${sizeDisplay}</strong></td></tr>
+                        <tr><td>Space Saved:</td><td><strong>${savedPercent}%</strong></td></tr>
+                    </table>
+                    <button id="downloadPdfBtn" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 12px; cursor: pointer; width: 100%; margin-top: 15px;">📥 Download PDF</button>
+                `;
+                pdfResult.classList.add('show');
+                
+                document.getElementById('downloadPdfBtn').onclick = () => {
+                    const html = createPrintHtml(imagesData, sizeDisplay);
+                    const blob = new Blob([html], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `photos_${Date.now()}.html`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showPdfStatus('HTML file downloaded! Open and press Ctrl+P to save as PDF.', 'success');
+                };
+                
+                updatePdfProgress(100);
+                showPdfStatus('Ready! Click Download PDF button.', 'success');
+                
+            } catch (err) {
+                showPdfStatus('Error: ' + err.message, 'error');
+                console.error(err);
+            } finally {
+                generatePdfBtn.disabled = false;
+                setTimeout(() => pdfProgressBar.classList.remove('show'), 2000);
+            }
+        }
+        
+        function createPrintHtml(imagesData, fileSize) {
+            return `<!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"><title>Photo PDF - ${fileSize}</title>
+            <style>
+                *{margin:0;padding:0;box-sizing:border-box;}
+                body{background:#f0f0f0;font-family:Arial,sans-serif;padding:20px;}
+                .print-btn{position:fixed;top:20px;right:20px;padding:10px 20px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;z-index:1000;font-size:14px;}
+                .page{page-break-after:always;margin:10px auto;background:white;box-shadow:0 2px 10px rgba(0,0,0,0.1);}
+                .page img{width:100%;height:auto;display:block;}
+                @media print{
+                    .print-btn{display:none;}
+                    body{padding:0;background:white;}
+                    .page{box-shadow:none;margin:0;}
+                    @page{margin:0;size:portrait;}
+                }
+            </style>
+            </head>
+            <body>
+                <button class="print-btn" onclick="window.print()">🖨️ Save as PDF (Ctrl+P)</button>
+                <div style="max-width:800px;margin:0 auto;">
+                    ${imagesData.map(img => `<div class="page"><img src="${img}"></div>`).join('')}
+                </div>
+                <script>
+                    setTimeout(() => {
+                        if(confirm('PDF ready! Click OK to open print dialog and save as PDF.\\nFile size: ${fileSize}')) {
+                            window.print();
+                        }
+                    }, 500);
+                <\/script>
+            </body>
+            </html>`;
+        }
+        
+        function addPdfFiles(files) {
+            const valid = Array.from(files).filter(f => f.type.startsWith('image/'));
+            if (valid.length === 0) {
+                showPdfStatus('Please select valid images', 'error');
+                return;
+            }
+            for (const file of valid) {
+                pdfImages.push(new RotatableImage(file));
+            }
+            renderPdfPreviews();
+            showPdfStatus(`Added ${valid.length} photo(s)`, 'success');
+        }
+        
+        function clearPdf() {
+            if (pdfImages.length > 0 && confirm('Remove all photos?')) {
+                pdfImages = [];
+                renderPdfPreviews();
+                showPdfStatus('All cleared', 'info');
+            }
+        }
+        
+        qualityPreset.addEventListener('change', () => {
+            customSizeDiv.style.display = qualityPreset.value === 'custom' ? 'block' : 'none';
+        });
+        
+        pdfUploadArea.addEventListener('click', () => pdfFileInput.click());
+        pdfFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) addPdfFiles(e.target.files);
+            pdfFileInput.value = '';
+        });
+        generatePdfBtn.addEventListener('click', generatePDF);
+        clearPdfBtn.addEventListener('click', clearPdf);
+        
+        pdfUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            pdfUploadArea.classList.add('drag-over');
+        });
+        pdfUploadArea.addEventListener('dragleave', () => pdfUploadArea.classList.remove('drag-over'));
+        pdfUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            pdfUploadArea.classList.remove('drag-over');
+            if (e.dataTransfer.files.length) addPdfFiles(e.dataTransfer.files);
+        });
+        
+        // ========== IMAGE RESIZER MODULE ==========
+        let resizeImages = [];
+        let resizeMode = 'single';
+        
+        const resizeUploadArea = document.getElementById('resizeUploadArea');
+        const resizeFileInput = document.getElementById('resizeFileInput');
+        const resizePreviewContainer = document.getElementById('resizePreviewContainer');
+        const resizePreviewImg = document.getElementById('resizePreviewImg');
+        const resizeBatchPreviewGrid = document.getElementById('resizeBatchPreviewGrid');
+        const minSize = document.getElementById('minSize');
+        const minSizeUnit = document.getElementById('minSizeUnit');
+        const maxSize = document.getElementById('maxSize');
+        const maxSizeUnit = document.getElementById('maxSizeUnit');
+        const enableSizeLimit = document.getElementById('enableSizeLimit');
+        const minWidth = document.getElementById('minWidth');
+        const minHeight = document.getElementById('minHeight');
+        const maxWidth = document.getElementById('maxWidth');
+        const maxHeight = document.getElementById('maxHeight');
+        const minDimensionUnit = document.getElementById('minDimensionUnit');
+        const maxDimensionUnit = document.getElementById('maxDimensionUnit');
+        const enableDimensionLimit = document.getElementById('enableDimensionLimit');
+        const resizeBtn = document.getElementById('resizeBtn');
+        const clearResizeBtn = document.getElementById('clearResizeBtn');
+        const resizeResult = document.getElementById('resizeResult');
+        const resizeProgressBar = document.getElementById('resizeProgressBar');
+        const resizeProgressFill = document.getElementById('resizeProgressFill');
+        const resizeStatus = document.getElementById('resizeStatus');
+        const rotateLeftResize = document.getElementById('rotateLeftResize');
+        const rotateRightResize = document.getElementById('rotateRightResize');
+        
+        function toggleResizeMode() {
+            resizeMode = document.querySelector('input[name="resizeMode"]:checked').value;
+            resizeImages = [];
+            resizeFileInput.multiple = (resizeMode === 'batch');
+            document.getElementById('resizeUploadText').textContent = (resizeMode === 'batch') ? 'Tap to select multiple images' : 'Tap to select an image';
+            renderResizePreviews();
+            resizeResult.classList.remove('show');
+        }
+
+        function showResizeStatus(msg, type) {
+            resizeStatus.textContent = msg;
+            resizeStatus.className = `status show ${type}`;
+            setTimeout(() => resizeStatus.classList.remove('show'), 4000);
+        }
+        
+        function updateResizeProgress(percent) {
+            resizeProgressFill.style.width = percent + '%';
+        }
+
+        async function renderResizePreviews() {
+            if (resizeMode === 'single') {
+                resizeBatchPreviewGrid.style.display = 'none';
+                if (resizeImages.length > 0) {
+                    const imgObj = resizeImages[0];
+                    await imgObj.load();
+                    resizePreviewImg.src = imgObj.dataUrl;
+                    resizePreviewContainer.classList.add('show');
+                } else {
+                    resizePreviewContainer.classList.remove('show');
+                }
+            } else {
+                resizePreviewContainer.classList.remove('show');
+                resizeBatchPreviewGrid.style.display = 'grid';
+                if (resizeImages.length === 0) {
+                    resizeBatchPreviewGrid.innerHTML = '<div style="text-align: center; padding: 40px; color: #999; grid-column: 1/-1;">No photos added yet</div>';
+                } else {
+                    resizeBatchPreviewGrid.innerHTML = '';
+                    for (let i = 0; i < resizeImages.length; i++) {
+                        const imgObj = resizeImages[i];
+                        const item = document.createElement('div');
+                        item.className = 'preview-item';
+                        
+                        const img = document.createElement('img');
+                        await imgObj.load();
+                        img.src = imgObj.dataUrl;
+                        
+                        const filename = document.createElement('div');
+                        filename.className = 'filename';
+                        filename.textContent = imgObj.file.name;
+                        
+                        const actionDiv = document.createElement('div');
+                        actionDiv.className = 'action-buttons';
+                        
+                        const rotLeft = document.createElement('button');
+                        rotLeft.textContent = '↺';
+                        rotLeft.className = 'action-btn rotate-btn';
+                        rotLeft.onclick = async () => { await imgObj.rotate(-90); renderResizePreviews(); };
+                        
+                        const rotRight = document.createElement('button');
+                        rotRight.textContent = '↻';
+                        rotRight.className = 'action-btn rotate-btn';
+                        rotRight.onclick = async () => { await imgObj.rotate(90); renderResizePreviews(); };
+                        
+                        actionDiv.appendChild(rotLeft);
+                        actionDiv.appendChild(rotRight);
+                        
+                        const remBtn = document.createElement('button');
+                        remBtn.textContent = '✕';
+                        remBtn.className = 'remove-btn';
+                        remBtn.onclick = () => { resizeImages.splice(i, 1); renderResizePreviews(); };
+                        
+                        item.appendChild(img);
+                        item.appendChild(filename);
+                        item.appendChild(actionDiv);
+                        item.appendChild(remBtn);
+                        resizeBatchPreviewGrid.appendChild(item);
+                    }
+                }
+            }
+        }
+
+        rotateLeftResize.addEventListener('click', async () => {
+            if (resizeImages[0]) {
+                await resizeImages[0].rotate(-90);
+                renderResizePreviews();
+                showResizeStatus('Image rotated left', 'success');
+            }
+        });
+        
+        rotateRightResize.addEventListener('click', async () => {
+            if (resizeImages[0]) {
+                await resizeImages[0].rotate(90);
+                renderResizePreviews();
+                showResizeStatus('Image rotated right', 'success');
+            }
+        });
+
+        function convertToPixels(value, unit) {
+            if (unit === 'px') return value;
+            if (unit === 'cm') return value * 37.795;
+            if (unit === 'in') return value * 96;
+            return value;
+        }
+        
+        function getValueInKB(value, unit) {
+            if (unit === 'KB') return value;
+            if (unit === 'MB') return value * 1024;
+            return value;
+        }
+
+        async function processSingleResize(imgObj, options) {
+            let img = new Image();
+            img.src = imgObj.dataUrl || await imgObj.load();
+            await new Promise((resolve) => { img.onload = resolve; });
+            
+            let currentWidth = img.width;
+            let currentHeight = img.height;
+            let currentDataUrl = imgObj.dataUrl;
+            let currentSize = Math.ceil(currentDataUrl.length * 0.75);
+            
+            const originalWidth = currentWidth;
+            const originalHeight = currentHeight;
+            const originalSize = currentSize;
+
+            if (options.dimensionLimitEnabled) {
+                let scale = 1;
+                if (options.maxWidthPx !== null && currentWidth > options.maxWidthPx) scale = Math.min(scale, options.maxWidthPx / currentWidth);
+                if (options.maxHeightPx !== null && currentHeight > options.maxHeightPx) scale = Math.min(scale, options.maxHeightPx / currentHeight);
+                if (options.minWidthPx !== null && currentWidth < options.minWidthPx) scale = Math.max(scale, options.minWidthPx / currentWidth);
+                if (options.minHeightPx !== null && currentHeight < options.minHeightPx) scale = Math.max(scale, options.minHeightPx / currentHeight);
+                
+                if (scale !== 1) {
+                    currentWidth = Math.max(10, Math.floor(currentWidth * scale));
+                    currentHeight = Math.max(10, Math.floor(currentHeight * scale));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = currentWidth;
+                    canvas.height = currentHeight;
+                    canvas.getContext('2d').drawImage(img, 0, 0, currentWidth, currentHeight);
+                    currentDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                    currentSize = Math.ceil(currentDataUrl.length * 0.75);
+                    img = new Image();
+                    img.src = currentDataUrl;
+                    await new Promise((resolve) => { img.onload = resolve; });
+                }
+            }
+
+            let finalQuality = 0.95;
+            if (options.sizeLimitEnabled && options.maxSizeKB !== null && currentSize > options.maxSizeKB * 1024) {
+                let quality = 0.9;
+                while (currentSize > options.maxSizeKB * 1024 && quality > 0.1 && finalQuality > 0.1) {
+                    quality -= 0.05;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = currentWidth;
+                    canvas.height = currentHeight;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+                    currentDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    currentSize = Math.ceil(currentDataUrl.length * 0.75);
+                    finalQuality = quality;
+                }
+            }
+
+            return {
+                name: imgObj.file.name,
+                dataUrl: currentDataUrl,
+                size: currentSize,
+                originalSize: originalSize,
+                width: currentWidth,
+                height: currentHeight,
+                originalWidth: originalWidth,
+                originalHeight: originalHeight
+            };
+        }
+
+        async function resizeAll() {
+            if (resizeImages.length === 0) {
+                showResizeStatus('Please add images first', 'error');
+                return;
+            }
+
+            const options = {
+                sizeLimitEnabled: enableSizeLimit.checked,
+                dimensionLimitEnabled: enableDimensionLimit.checked,
+                minSizeKB: null, maxSizeKB: null,
+                minWidthPx: null, minHeightPx: null, maxWidthPx: null, maxHeightPx: null
+            };
+
+            if (options.sizeLimitEnabled) {
+                const minV = parseFloat(minSize.value);
+                const maxV = parseFloat(maxSize.value);
+                if (!isNaN(minV)) options.minSizeKB = getValueInKB(minV, minSizeUnit.value);
+                if (!isNaN(maxV)) options.maxSizeKB = getValueInKB(maxV, maxSizeUnit.value);
+            }
+
+            if (options.dimensionLimitEnabled) {
+                const minW = parseFloat(minWidth.value), minH = parseFloat(minHeight.value);
+                const maxW = parseFloat(maxWidth.value), maxH = parseFloat(maxHeight.value);
+                if (!isNaN(minW) && !isNaN(minH)) {
+                    options.minWidthPx = convertToPixels(minW, minDimensionUnit.value);
+                    options.minHeightPx = convertToPixels(minH, minDimensionUnit.value);
+                }
+                if (!isNaN(maxW) && !isNaN(maxH)) {
+                    options.maxWidthPx = convertToPixels(maxW, maxDimensionUnit.value);
+                    options.maxHeightPx = convertToPixels(maxH, maxDimensionUnit.value);
+                }
+            }
+
+            resizeBtn.disabled = true;
+            resizeProgressBar.classList.add('show');
+            showResizeStatus('Processing...', 'info');
+
+            try {
+                const results = [];
+                for (let i = 0; i < resizeImages.length; i++) {
+                    updateResizeProgress((i / resizeImages.length) * 100);
+                    results.push(await processSingleResize(resizeImages[i], options));
+                }
+                updateResizeProgress(100);
+
+                if (resizeMode === 'single') {
+                    const r = results[0];
+                    resizeResult.innerHTML = `
+                        <div style="text-align: center;"><span class="success-badge">✅ Resized Successfully!</span></div>
+                        <table class="result-table">
+                            <tr><td>Original:</td><td>${formatSize(r.originalSize)} (${r.originalWidth}x${r.originalHeight})</td></tr>
+                            <tr><td>Final:</td><td><strong>${formatSize(r.size)} (${r.width}x${r.height})</strong></td></tr>
+                        </table>
+                        <button onclick="downloadFile('${r.dataUrl}', 'resized_${r.name}')" class="btn-success" style="width: 100%;">📥 Download</button>
+                    `;
+                } else {
+                    let totalOrig = 0, totalFinal = 0;
+                    results.forEach(r => { totalOrig += r.originalSize; totalFinal += r.size; });
+                    resizeResult.innerHTML = `
+                        <div style="text-align: center;"><span class="success-badge">✅ Batch Processed!</span></div>
+                        <p style="font-size: 13px; margin: 10px 0; font-weight: 600;">Processed ${results.length} images. Total Saved: ${((totalOrig-totalFinal)/totalOrig*100).toFixed(1)}%</p>
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 12px; background: white;">
+                            ${results.map(r => {
+                                const diff = r.size - r.originalSize;
+                                const percent = ((diff / r.originalSize) * 100).toFixed(1);
+                                const isOptimized = diff <= 0;
+                                return `
+                                <div class="batch-download-item" style="flex-direction: column; align-items: stretch; gap: 5px; border-bottom: 1px solid #f0f0f0; padding: 12px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">${r.name}</span>
+                                        <a href="${r.dataUrl}" download="resized_${r.name}" class="download-link">Download</a>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #666;">
+                                        <span>Orig: ${formatSize(r.originalSize)}</span>
+                                        <span>New: <strong>${formatSize(r.size)}</strong></span>
+                                        <span style="color: ${isOptimized ? '#28a745' : '#dc3545'}; font-weight: 600;">
+                                            ${isOptimized ? '📉 -' + Math.abs(percent) + '%' : '📈 +' + percent + '%'}
+                                        </span>
+                                    </div>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    `;
+                }
+                resizeResult.classList.add('show');
+                showResizeStatus('Resize complete!', 'success');
+            } catch (err) {
+                showResizeStatus('Error: ' + err.message, 'error');
+            } finally {
+                resizeBtn.disabled = false;
+                setTimeout(() => resizeProgressBar.classList.remove('show'), 2000);
+            }
+        }
+
+        window.downloadFile = (url, name) => {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = name;
+            link.click();
+        };
+
+        function addResizeFiles(files) {
+            const valid = Array.from(files).filter(f => f.type.startsWith('image/'));
+            if (resizeMode === 'single' && valid.length > 0) {
+                resizeImages = [new RotatableImage(valid[0])];
+            } else {
+                valid.forEach(f => resizeImages.push(new RotatableImage(f)));
+            }
+            renderResizePreviews();
+            resizeResult.classList.remove('show');
+        }
+
+        resizeUploadArea.addEventListener('click', () => resizeFileInput.click());
+        resizeFileInput.addEventListener('change', (e) => { if (e.target.files.length) addResizeFiles(e.target.files); e.target.value = ''; });
+        resizeBtn.addEventListener('click', resizeAll);
+        clearResizeBtn.addEventListener('click', () => { resizeImages = []; renderResizePreviews(); resizeResult.classList.remove('show'); });
+
+        // ========== PDF RESIZE MODULE ==========
+        let pdfResizeFiles = [];
+        let pdfResizeMode = 'single';
+
+        const pdfResizeUploadArea = document.getElementById('pdfResizeUploadArea');
+        const pdfResizeFileInput = document.getElementById('pdfResizeFileInput');
+        const pdfResizeList = document.getElementById('pdfResizeList');
+        const pdfTargetMaxSize = document.getElementById('pdfTargetMaxSize');
+        const pdfTargetMaxSizeUnit = document.getElementById('pdfTargetMaxSizeUnit');
+        const resizePdfBtn = document.getElementById('resizePdfBtn');
+        const clearPdfResizeBtn = document.getElementById('clearPdfResizeBtn');
+        const pdfResizeResult = document.getElementById('pdfResizeResult');
+        const pdfResizeProgressBar = document.getElementById('pdfResizeProgressBar');
+        const pdfResizeProgressFill = document.getElementById('pdfResizeProgressFill');
+        const pdfResizeStatus = document.getElementById('pdfResizeStatus');
+
+        function togglePdfResizeMode() {
+            pdfResizeMode = document.querySelector('input[name="pdfResizeMode"]:checked').value;
+            pdfResizeFiles = [];
+            pdfResizeFileInput.multiple = (pdfResizeMode === 'batch');
+            document.getElementById('pdfResizeUploadText').textContent = (pdfResizeMode === 'batch') ? 'Tap to select multiple PDFs' : 'Tap to select a PDF file';
+            renderPdfResizeList();
+            pdfResizeResult.classList.remove('show');
+        }
+
+        function showPdfResizeStatus(msg, type) {
+            pdfResizeStatus.textContent = msg;
+            pdfResizeStatus.className = `status show ${type}`;
+            setTimeout(() => pdfResizeStatus.classList.remove('show'), 4000);
+        }
+
+        function updatePdfResizeProgress(percent) {
+            pdfResizeProgressFill.style.width = percent + '%';
+        }
+
+        async function renderPdfResizeList() {
+            pdfResizeList.innerHTML = '';
+            if (pdfResizeFiles.length === 0) return;
+
+            for (let i = 0; i < pdfResizeFiles.length; i++) {
+                const f = pdfResizeFiles[i];
+                const item = document.createElement('div');
+                item.className = 'pdf-preview-item';
+                
+                let details = `<strong>${f.name}</strong> (${formatSize(f.size)})`;
+                if (f.pages) details += ` • ${f.pages} pages`;
+
+                item.innerHTML = `
+                    <div class="pdf-preview-info">${details}</div>
+                    <button class="remove-btn" style="position: static; margin-left: 10px;">✕</button>
+                `;
+                item.querySelector('.remove-btn').onclick = () => { pdfResizeFiles.splice(i, 1); renderPdfResizeList(); };
+                pdfResizeList.appendChild(item);
+            }
+        }
+
+        async function addPdfResizeFiles(files) {
+            const valid = Array.from(files).filter(f => f.type === 'application/pdf');
+            for (const file of valid) {
+                if (pdfResizeMode === 'single') {
+                    pdfResizeFiles = [{ file, name: file.name, size: file.size }];
+                } else {
+                    pdfResizeFiles.push({ file, name: file.name, size: file.size });
+                }
+                
+                const idx = pdfResizeFiles.length - 1;
+                try {
+                    const arr = await file.arrayBuffer();
+                    const doc = await pdfjsLib.getDocument(arr).promise;
+                    pdfResizeFiles[idx].pages = doc.numPages;
+                    pdfResizeFiles[idx].doc = doc;
+                } catch (e) { console.error(e); }
+            }
+            renderPdfResizeList();
+        }
+
+        async function processPdfResize(pdfObj, targetSizeKB) {
+            if (!pdfObj.doc) return null;
+            const doc = pdfObj.doc;
+            const canvases = [];
+            
+            // Render all pages to canvases once
+            for (let i = 1; i <= doc.numPages; i++) {
+                const page = await doc.getPage(i);
+                const vp = page.getViewport({ scale: 1.5 });
+                const canvas = document.createElement('canvas');
+                canvas.height = vp.height; canvas.width = vp.width;
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                canvases.push(canvas);
+            }
+
+            function getResult(q) {
+                const imgs = canvases.map(c => c.toDataURL('image/jpeg', q));
+                let size = 0;
+                imgs.forEach(img => size += Math.ceil(img.split(',')[1].length * 0.75));
+                return { images: imgs, size: size / 1024 }; // size in KB
+            }
+
+            let low = 0.05, high = 0.95, bestQ = 0.05;
+            let finalResult = getResult(bestQ);
+
+            // If even at lowest quality it exceeds target, we'll have to accept it
+            if (finalResult.size > targetSizeKB) {
+                // Try even lower if needed
+                bestQ = 0.01;
+                finalResult = getResult(bestQ);
+            } else {
+                // Binary search for best quality that stays under target
+                for (let i = 0; i < 7; i++) {
+                    let mid = (low + high) / 2;
+                    let res = getResult(mid);
+                    if (res.size <= targetSizeKB) {
+                        bestQ = mid;
+                        finalResult = res;
+                        low = mid;
+                    } else {
+                        high = mid;
+                    }
+                }
+            }
+            
+            return { name: pdfObj.name, images: finalResult.images, finalSize: Math.round(finalResult.size * 1024) };
+        }
+
+        resizePdfBtn.addEventListener('click', async () => {
+            if (pdfResizeFiles.length === 0) { showPdfResizeStatus('Please add PDF(s) first', 'error'); return; }
+            
+            const targetVal = parseFloat(pdfTargetMaxSize.value);
+            const targetKB = pdfTargetMaxSizeUnit.value === 'MB' ? targetVal * 1024 : targetVal;
+
+            resizePdfBtn.disabled = true;
+            pdfResizeProgressBar.classList.add('show');
+            showPdfResizeStatus('Processing PDF(s)...', 'info');
+
+            try {
+                const results = [];
+                for (let i = 0; i < pdfResizeFiles.length; i++) {
+                    updatePdfResizeProgress((i / pdfResizeFiles.length) * 100);
+                    results.push(await processPdfResize(pdfResizeFiles[i], targetKB));
+                }
+                updatePdfResizeProgress(100);
+
+                pdfResizeResult.innerHTML = `<div style="text-align: center;"><span class="success-badge">✅ Resizing Complete!</span></div>`;
+                const listDiv = document.createElement('div');
+                listDiv.style.maxHeight = '200px'; listDiv.style.overflowY = 'auto'; listDiv.style.marginTop = '10px';
+                
+                results.forEach(r => {
+                    const item = document.createElement('div');
+                    item.className = 'batch-download-item';
+                    item.innerHTML = `<span style="font-size:12px;">${r.name} (${formatSize(r.finalSize)})</span><a href="#" class="download-link">Download</a>`;
+                    item.querySelector('a').onclick = (e) => {
+                        e.preventDefault();
+                        const html = createPrintHtml(r.images, formatSize(r.finalSize));
+                        const blob = new Blob([html], { type: 'text/html' });
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `resized_${r.name.replace('.pdf', '')}.html`;
+                        link.click();
+                    };
+                    listDiv.appendChild(item);
+                });
+                pdfResizeResult.appendChild(listDiv);
+                pdfResizeResult.classList.add('show');
+                showPdfResizeStatus('Process complete!', 'success');
+            } catch (e) { showPdfResizeStatus('Error: ' + e.message, 'error'); }
+            finally { resizePdfBtn.disabled = false; setTimeout(() => pdfResizeProgressBar.classList.remove('show'), 2000); }
+        });
+
+        pdfResizeUploadArea.addEventListener('click', () => pdfResizeFileInput.click());
+        pdfResizeFileInput.addEventListener('change', (e) => { if (e.target.files.length) addPdfResizeFiles(e.target.files); e.target.value = ''; });
+        clearPdfResizeBtn.addEventListener('click', () => { pdfResizeFiles = []; renderPdfResizeList(); pdfResizeResult.classList.remove('show'); });
+
+        // Tab switching
+        window.switchTab = function(tab) {
+            const pdfTab = document.getElementById('pdfTab');
+            const resizeTab = document.getElementById('resizeTab');
+            const pdfResizeTab = document.getElementById('pdfResizeTab');
+            const tabs = document.querySelectorAll('.tab');
+            
+            pdfTab.classList.remove('active');
+            resizeTab.classList.remove('active');
+            pdfResizeTab.classList.remove('active');
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if (tab === 'pdf') {
+                pdfTab.classList.add('active');
+                tabs[0].classList.add('active');
+            } else if (tab === 'resize') {
+                resizeTab.classList.add('active');
+                tabs[1].classList.add('active');
+            } else if (tab === 'pdfResize') {
+                pdfResizeTab.classList.add('active');
+                tabs[2].classList.add('active');
+            }
+        };
+
+        // Initial setup
+        toggleResizeMode();
+        togglePdfResizeMode();
+        
+        console.log('Photo Tools Pro Loaded Successfully!');
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker failed', err));
+            });
+        }
+    </script>
+</body>
+</html>

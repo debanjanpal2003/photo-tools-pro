@@ -1,0 +1,17 @@
+{
+  "name": "Photo Tools Pro",
+  "short_name": "PhotoTools",
+  "description": "Professional Photo to PDF and Image Resizer tool. 100% Offline.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#764ba2",
+  "theme_color": "#667eea",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3344/3344350.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "appId": "com.phototoolspro.app",
+  "appName": "Photo Tools Pro",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
