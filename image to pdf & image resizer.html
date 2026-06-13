@@ -8,6 +8,7 @@
     <meta name="theme-color" content="#667eea">
     <script src="capacitor.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -827,6 +828,36 @@
             return (bytes / (1024 * 1024)).toFixed(2) + (showUnit ? ' MB' : '');
         }
 
+        async function downloadFile(url, name) {
+            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                try {
+                    const Filesystem = Capacitor.Plugins.Filesystem;
+                    const Share = Capacitor.Plugins.Share;
+                    
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    
+                    return new Promise((resolve) => {
+                        reader.onloadend = async () => {
+                            const base64Data = reader.result.split(',')[1];
+                            const result = await Filesystem.writeFile({
+                                path: name,
+                                data: base64Data,
+                                directory: 'CACHE'
+                            });
+                            await Share.share({ title: name, url: result.uri });
+                            resolve();
+                        };
+                        reader.readAsDataURL(blob);
+                    });
+                } catch (e) { console.error('Native sharing failed', e); }
+            }
+            const link = document.createElement('a');
+            link.href = url; link.download = name; link.click();
+        }
+        window.downloadFile = downloadFile;
+
         class RotatableImage {
             constructor(file) {
                 this.file = file;
@@ -857,8 +888,7 @@
                         URL.revokeObjectURL(url);
                         resolve(this.dataUrl);
                     };
-                    img.onerror = reject;
-                    img.src = url;
+                    img.onerror = reject; img.src = url;
                 });
             }
             
@@ -875,8 +905,7 @@
                         const img = new Image();
                         img.onload = () => {
                             const canvas = document.createElement('canvas');
-                            canvas.width = img.width;
-                            canvas.height = img.height;
+                            canvas.width = img.width; canvas.height = img.height;
                             canvas.getContext('2d').drawImage(img, 0, 0);
                             resolve(canvas.toDataURL('image/jpeg', quality));
                         };
@@ -900,7 +929,6 @@
         const customSizeDiv = document.getElementById('customSizeDiv');
         const customSizeValue = document.getElementById('customSizeValue');
         const customSizeUnit = document.getElementById('customSizeUnit');
-        const sizeWarning = document.getElementById('sizeWarning');
         const pdfProgressBar = document.getElementById('pdfProgressBar');
         const pdfProgressFill = document.getElementById('pdfProgressFill');
         const pdfStatus = document.getElementById('pdfStatus');
@@ -924,8 +952,7 @@
             if (preset === 'custom') {
                 let value = parseFloat(customSizeValue.value);
                 if (isNaN(value) || value <= 0) return 1024;
-                if (customSizeUnit.value === 'KB') return value;
-                return value * 1024;
+                return customSizeUnit.value === 'KB' ? value : value * 1024;
             }
             return 1024;
         }
@@ -941,298 +968,133 @@
                 pdfResult.classList.remove('show');
                 return;
             }
-            
             pdfPreviewGrid.innerHTML = '';
-            
             for (let i = 0; i < pdfImages.length; i++) {
                 const imgObj = pdfImages[i];
                 const item = document.createElement('div');
                 item.className = 'preview-item';
-                item.setAttribute('data-index', i);
                 item.setAttribute('draggable', 'true');
-                
                 const img = document.createElement('img');
-                await imgObj.load();
-                img.src = imgObj.dataUrl;
-                
+                await imgObj.load(); img.src = imgObj.dataUrl;
                 const filename = document.createElement('div');
                 filename.className = 'filename';
                 filename.textContent = imgObj.file.name.length > 25 ? imgObj.file.name.substring(0, 22) + '...' : imgObj.file.name;
-                
                 const actionDiv = document.createElement('div');
                 actionDiv.className = 'action-buttons';
-                
                 const rotateLeft = document.createElement('button');
-                rotateLeft.textContent = '↺ Left';
-                rotateLeft.className = 'action-btn rotate-btn';
-                rotateLeft.onclick = async (e) => {
-                    e.stopPropagation();
-                    await imgObj.rotate(-90);
-                    renderPdfPreviews();
-                    showPdfStatus('Image rotated', 'success');
-                };
-                
+                rotateLeft.textContent = '↺ Left'; rotateLeft.className = 'action-btn rotate-btn';
+                rotateLeft.onclick = async (e) => { e.stopPropagation(); await imgObj.rotate(-90); renderPdfPreviews(); };
                 const rotateRight = document.createElement('button');
-                rotateRight.textContent = 'Right ↻';
-                rotateRight.className = 'action-btn rotate-btn';
-                rotateRight.onclick = async (e) => {
-                    e.stopPropagation();
-                    await imgObj.rotate(90);
-                    renderPdfPreviews();
-                    showPdfStatus('Image rotated', 'success');
-                };
-                
-                actionDiv.appendChild(rotateLeft);
-                actionDiv.appendChild(rotateRight);
-                
+                rotateRight.textContent = 'Right ↻'; rotateRight.className = 'action-btn rotate-btn';
+                rotateRight.onclick = async (e) => { e.stopPropagation(); await imgObj.rotate(90); renderPdfPreviews(); };
+                actionDiv.appendChild(rotateLeft); actionDiv.appendChild(rotateRight);
                 const removeBtn = document.createElement('button');
-                removeBtn.textContent = '✕';
-                removeBtn.className = 'remove-btn';
-                removeBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    pdfImages.splice(i, 1);
-                    renderPdfPreviews();
-                    showPdfStatus('Photo removed', 'info');
-                };
-                
-                item.appendChild(img);
-                item.appendChild(filename);
-                item.appendChild(actionDiv);
-                item.appendChild(removeBtn);
-                
-                item.addEventListener('dragstart', (e) => {
-                    draggedIndex = i;
-                    e.dataTransfer.effectAllowed = 'move';
-                });
+                removeBtn.textContent = '✕'; removeBtn.className = 'remove-btn';
+                removeBtn.onclick = (e) => { e.stopPropagation(); pdfImages.splice(i, 1); renderPdfPreviews(); };
+                item.appendChild(img); item.appendChild(filename); item.appendChild(actionDiv); item.appendChild(removeBtn);
+                item.addEventListener('dragstart', (e) => draggedIndex = i);
                 item.addEventListener('dragover', (e) => e.preventDefault());
                 item.addEventListener('drop', (e) => {
                     e.preventDefault();
                     if (draggedIndex !== null && draggedIndex !== i) {
                         const [moved] = pdfImages.splice(draggedIndex, 1);
-                        pdfImages.splice(i, 0, moved);
-                        renderPdfPreviews();
-                        showPdfStatus('Reordered', 'info');
+                        pdfImages.splice(i, 0, moved); renderPdfPreviews();
                     }
                 });
-                
                 pdfPreviewGrid.appendChild(item);
             }
         }
         
         async function generatePDF() {
-            if (pdfImages.length === 0) {
-                showPdfStatus('Please add photos first', 'error');
-                return;
-            }
-            
+            if (pdfImages.length === 0) { showPdfStatus('Please add photos first', 'error'); return; }
             generatePdfBtn.disabled = true;
             pdfProgressBar.classList.add('show');
             updatePdfProgress(0);
-            showPdfStatus('Processing images...', 'info');
-            
+            showPdfStatus('Generating PDF...', 'info');
             try {
                 const maxSizeKB = getMaxSizePerPageKB();
                 let quality = getQualityFromMaxSize(maxSizeKB);
-                
-                const imagesData = [];
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
                 for (let i = 0; i < pdfImages.length; i++) {
-                    updatePdfProgress((i / pdfImages.length) * 70);
+                    updatePdfProgress((i / pdfImages.length) * 90);
                     const data = await pdfImages[i].getDataUrl(quality);
-                    imagesData.push(data);
+                    if (i > 0) doc.addPage();
+                    const props = doc.getImageProperties(data);
+                    const pageWidth = doc.internal.pageSize.getWidth();
+                    const imgHeight = (props.height * pageWidth) / props.width;
+                    doc.addImage(data, 'JPEG', 0, 0, pageWidth, imgHeight);
                 }
-                
-                updatePdfProgress(80);
-                
-                let finalTotalSize = 0;
-                for (let i = 0; i < imagesData.length; i++) {
-                    const base64 = imagesData[i].split(',')[1];
-                    finalTotalSize += Math.ceil(base64.length * 0.75);
-                }
-                
-                let sizeDisplay = formatSize(finalTotalSize);
-                
+                const pdfBlob = doc.output('blob');
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                const fileName = `photos_${Date.now()}.pdf`;
                 let originalTotalSize = 0;
-                for (const img of pdfImages) {
-                    originalTotalSize += img.originalSize;
-                }
-                const savedPercent = ((originalTotalSize - finalTotalSize) / originalTotalSize * 100).toFixed(1);
-                
-                let targetDisplay = maxSizeKB === Infinity ? 'No limit' : maxSizeKB + ' KB per page';
-                
+                for (const img of pdfImages) originalTotalSize += img.originalSize;
                 pdfResult.innerHTML = `
-                    <div style="text-align: center;">
-                        <span class="success-badge">✅ PDF Generated Successfully!</span>
-                    </div>
+                    <div style="text-align: center;"><span class="success-badge">✅ PDF Created!</span></div>
                     <table class="result-table">
-                        <tr><td>Number of Photos:</td><td><strong>${pdfImages.length}</strong></td></tr>
-                        <tr><td>Original Total Size:</td><td><strong>${formatSize(originalTotalSize)}</strong></td></tr>
-                        <tr><td>Target Limit:</td><td><strong>${targetDisplay}</strong></td></tr>
-                        <tr><td>Final PDF Size:</td><td><strong style="color: #28a745;">${sizeDisplay}</strong></td></tr>
-                        <tr><td>Space Saved:</td><td><strong>${savedPercent}%</strong></td></tr>
+                        <tr><td>Photos:</td><td><strong>${pdfImages.length}</strong></td></tr>
+                        <tr><td>Size:</td><td><strong style="color: #28a745;">${formatSize(pdfBlob.size)}</strong></td></tr>
+                        <tr><td>Saved:</td><td><strong>${((originalTotalSize-pdfBlob.size)/originalTotalSize*100).toFixed(1)}%</strong></td></tr>
                     </table>
-                    <button id="downloadPdfBtn" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 12px; cursor: pointer; width: 100%; margin-top: 15px;">📥 Download PDF</button>
+                    <button id="downloadPdfBtn" class="btn-success" style="width:100%; margin-top:15px;">📥 Save PDF to Device</button>
                 `;
                 pdfResult.classList.add('show');
-                
-                document.getElementById('downloadPdfBtn').onclick = () => {
-                    const html = createPrintHtml(imagesData, sizeDisplay);
-                    const blob = new Blob([html], { type: 'text/html' });
-                    const url = URL.createObjectURL(blob);
-                    downloadFile(url, `photos_${Date.now()}.html`);
-                    URL.revokeObjectURL(url);
-                    showPdfStatus('HTML file ready! Share to save or open and print as PDF.', 'success');
-                };
-                
+                document.getElementById('downloadPdfBtn').onclick = () => downloadFile(pdfUrl, fileName);
                 updatePdfProgress(100);
-                showPdfStatus('Ready! Click Download PDF button.', 'success');
-                
-            } catch (err) {
-                showPdfStatus('Error: ' + err.message, 'error');
-                console.error(err);
-            } finally {
-                generatePdfBtn.disabled = false;
-                setTimeout(() => pdfProgressBar.classList.remove('show'), 2000);
-            }
-        }
-        
-        function createPrintHtml(imagesData, fileSize) {
-            return `<!DOCTYPE html>
-            <html>
-            <head><meta charset="UTF-8"><title>Photo PDF - ${fileSize}</title>
-            <style>
-                *{margin:0;padding:0;box-sizing:border-box;}
-                body{background:#f0f0f0;font-family:Arial,sans-serif;padding:20px;}
-                .print-btn{position:fixed;top:20px;right:20px;padding:10px 20px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;z-index:1000;font-size:14px;}
-                .page{page-break-after:always;margin:10px auto;background:white;box-shadow:0 2px 10px rgba(0,0,0,0.1);}
-                .page img{width:100%;height:auto;display:block;}
-                @media print{
-                    .print-btn{display:none;}
-                    body{padding:0;background:white;}
-                    .page{box-shadow:none;margin:0;}
-                    @page{margin:0;size:portrait;}
-                }
-            </style>
-            </head>
-            <body>
-                <button class="print-btn" onclick="window.print()">🖨️ Save as PDF (Ctrl+P)</button>
-                <div style="max-width:800px;margin:0 auto;">
-                    ${imagesData.map(img => `<div class="page"><img src="${img}"></div>`).join('')}
-                </div>
-                <script>
-                    setTimeout(() => {
-                        if(confirm('PDF ready! Click OK to open print dialog and save as PDF.\\nFile size: ${fileSize}')) {
-                            window.print();
-                        }
-                    }, 500);
-                <\/script>
-            </body>
-            </html>`;
+                showPdfStatus('Success!', 'success');
+            } catch (err) { showPdfStatus('Error: ' + err.message, 'error'); }
+            finally { generatePdfBtn.disabled = false; setTimeout(() => pdfProgressBar.classList.remove('show'), 2000); }
         }
         
         function addPdfFiles(files) {
             const valid = Array.from(files).filter(f => f.type.startsWith('image/'));
-            if (valid.length === 0) {
-                showPdfStatus('Please select valid images', 'error');
-                return;
-            }
-            for (const file of valid) {
-                pdfImages.push(new RotatableImage(file));
-            }
-            renderPdfPreviews();
-            showPdfStatus(`Added ${valid.length} photo(s)`, 'success');
+            if (valid.length === 0) { showPdfStatus('Select valid images', 'error'); return; }
+            valid.forEach(f => pdfImages.push(new RotatableImage(f)));
+            renderPdfPreviews(); showPdfStatus(`Added ${valid.length} photos`, 'success');
         }
         
-        function clearPdf() {
-            if (pdfImages.length > 0 && confirm('Remove all photos?')) {
-                pdfImages = [];
-                renderPdfPreviews();
-                showPdfStatus('All cleared', 'info');
-            }
-        }
-        
-        qualityPreset.addEventListener('change', () => {
-            customSizeDiv.style.display = qualityPreset.value === 'custom' ? 'block' : 'none';
-        });
-        
+        qualityPreset.addEventListener('change', () => customSizeDiv.style.display = qualityPreset.value === 'custom' ? 'block' : 'none');
         pdfUploadArea.addEventListener('click', () => pdfFileInput.click());
-        pdfFileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) addPdfFiles(e.target.files);
-            pdfFileInput.value = '';
-        });
+        pdfFileInput.addEventListener('change', (e) => { if (e.target.files.length) addPdfFiles(e.target.files); e.target.value = ''; });
         generatePdfBtn.addEventListener('click', generatePDF);
-        clearPdfBtn.addEventListener('click', clearPdf);
-        
-        pdfUploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            pdfUploadArea.classList.add('drag-over');
-        });
-        pdfUploadArea.addEventListener('dragleave', () => pdfUploadArea.classList.remove('drag-over'));
-        pdfUploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            pdfUploadArea.classList.remove('drag-over');
-            if (e.dataTransfer.files.length) addPdfFiles(e.dataTransfer.files);
-        });
+        clearPdfBtn.addEventListener('click', () => { if (pdfImages.length > 0 && confirm('Clear all?')) { pdfImages = []; renderPdfPreviews(); } });
         
         // ========== IMAGE RESIZER MODULE ==========
         let resizeImages = [];
         let resizeMode = 'single';
-        
-        const resizeUploadArea = document.getElementById('resizeUploadArea');
         const resizeFileInput = document.getElementById('resizeFileInput');
         const resizePreviewContainer = document.getElementById('resizePreviewContainer');
         const resizePreviewImg = document.getElementById('resizePreviewImg');
         const resizeBatchPreviewGrid = document.getElementById('resizeBatchPreviewGrid');
-        const minSize = document.getElementById('minSize');
-        const minSizeUnit = document.getElementById('minSizeUnit');
-        const maxSize = document.getElementById('maxSize');
-        const maxSizeUnit = document.getElementById('maxSizeUnit');
         const enableSizeLimit = document.getElementById('enableSizeLimit');
-        const minWidth = document.getElementById('minWidth');
-        const minHeight = document.getElementById('minHeight');
-        const maxWidth = document.getElementById('maxWidth');
-        const maxHeight = document.getElementById('maxHeight');
-        const minDimensionUnit = document.getElementById('minDimensionUnit');
-        const maxDimensionUnit = document.getElementById('maxDimensionUnit');
         const enableDimensionLimit = document.getElementById('enableDimensionLimit');
         const resizeBtn = document.getElementById('resizeBtn');
-        const clearResizeBtn = document.getElementById('clearResizeBtn');
         const resizeResult = document.getElementById('resizeResult');
         const resizeProgressBar = document.getElementById('resizeProgressBar');
         const resizeProgressFill = document.getElementById('resizeProgressFill');
         const resizeStatus = document.getElementById('resizeStatus');
-        const rotateLeftResize = document.getElementById('rotateLeftResize');
-        const rotateRightResize = document.getElementById('rotateRightResize');
-        
+
         function toggleResizeMode() {
             resizeMode = document.querySelector('input[name="resizeMode"]:checked').value;
-            resizeImages = [];
-            resizeFileInput.multiple = (resizeMode === 'batch');
-            document.getElementById('resizeUploadText').textContent = (resizeMode === 'batch') ? 'Tap to select multiple images' : 'Tap to select an image';
-            renderResizePreviews();
-            resizeResult.classList.remove('show');
+            resizeImages = []; resizeFileInput.multiple = (resizeMode === 'batch');
+            document.getElementById('resizeUploadText').textContent = (resizeMode === 'batch') ? 'Select multiple images' : 'Select an image';
+            renderResizePreviews(); resizeResult.classList.remove('show');
         }
 
         function showResizeStatus(msg, type) {
-            resizeStatus.textContent = msg;
-            resizeStatus.className = `status show ${type}`;
+            resizeStatus.textContent = msg; resizeStatus.className = `status show ${type}`;
             setTimeout(() => resizeStatus.classList.remove('show'), 4000);
-        }
-        
-        function updateResizeProgress(percent) {
-            resizeProgressFill.style.width = percent + '%';
         }
 
         async function renderResizePreviews() {
             if (resizeMode === 'single') {
                 resizeBatchPreviewGrid.style.display = 'none';
                 if (resizeImages.length > 0) {
-                    const imgObj = resizeImages[0];
-                    await imgObj.load();
-                    resizePreviewImg.src = imgObj.dataUrl;
+                    await resizeImages[0].load();
+                    resizePreviewImg.src = resizeImages[0].dataUrl;
                     resizePreviewContainer.classList.add('show');
-                } else {
-                    resizePreviewContainer.classList.remove('show');
-                }
+                } else { resizePreviewContainer.classList.remove('show'); }
             } else {
                 resizePreviewContainer.classList.remove('show');
                 resizeBatchPreviewGrid.style.display = 'grid';
@@ -1244,375 +1106,158 @@
                         const imgObj = resizeImages[i];
                         const item = document.createElement('div');
                         item.className = 'preview-item';
-                        
                         const img = document.createElement('img');
-                        await imgObj.load();
-                        img.src = imgObj.dataUrl;
-                        
+                        await imgObj.load(); img.src = imgObj.dataUrl;
                         const filename = document.createElement('div');
-                        filename.className = 'filename';
-                        filename.textContent = imgObj.file.name;
-                        
+                        filename.className = 'filename'; filename.textContent = imgObj.file.name;
                         const actionDiv = document.createElement('div');
                         actionDiv.className = 'action-buttons';
-                        
                         const rotLeft = document.createElement('button');
-                        rotLeft.textContent = '↺';
-                        rotLeft.className = 'action-btn rotate-btn';
+                        rotLeft.textContent = '↺'; rotLeft.className = 'action-btn rotate-btn';
                         rotLeft.onclick = async () => { await imgObj.rotate(-90); renderResizePreviews(); };
-                        
                         const rotRight = document.createElement('button');
-                        rotRight.textContent = '↻';
-                        rotRight.className = 'action-btn rotate-btn';
+                        rotRight.textContent = '↻'; rotRight.className = 'action-btn rotate-btn';
                         rotRight.onclick = async () => { await imgObj.rotate(90); renderResizePreviews(); };
-                        
-                        actionDiv.appendChild(rotLeft);
-                        actionDiv.appendChild(rotRight);
-                        
+                        actionDiv.appendChild(rotLeft); actionDiv.appendChild(rotRight);
                         const remBtn = document.createElement('button');
-                        remBtn.textContent = '✕';
-                        remBtn.className = 'remove-btn';
+                        remBtn.textContent = '✕'; remBtn.className = 'remove-btn';
                         remBtn.onclick = () => { resizeImages.splice(i, 1); renderResizePreviews(); };
-                        
-                        item.appendChild(img);
-                        item.appendChild(filename);
-                        item.appendChild(actionDiv);
-                        item.appendChild(remBtn);
+                        item.appendChild(img); item.appendChild(filename); item.appendChild(actionDiv); item.appendChild(remBtn);
                         resizeBatchPreviewGrid.appendChild(item);
                     }
                 }
             }
         }
 
-        rotateLeftResize.addEventListener('click', async () => {
-            if (resizeImages[0]) {
-                await resizeImages[0].rotate(-90);
-                renderResizePreviews();
-                showResizeStatus('Image rotated left', 'success');
-            }
-        });
-        
-        rotateRightResize.addEventListener('click', async () => {
-            if (resizeImages[0]) {
-                await resizeImages[0].rotate(90);
-                renderResizePreviews();
-                showResizeStatus('Image rotated right', 'success');
-            }
-        });
-
-        function convertToPixels(value, unit) {
-            if (unit === 'px') return value;
-            if (unit === 'cm') return value * 37.795;
-            if (unit === 'in') return value * 96;
-            return value;
-        }
-        
-        function getValueInKB(value, unit) {
-            if (unit === 'KB') return value;
-            if (unit === 'MB') return value * 1024;
-            return value;
-        }
-
         async function processSingleResize(imgObj, options) {
             let img = new Image();
             img.src = imgObj.dataUrl || await imgObj.load();
-            await new Promise((resolve) => { img.onload = resolve; });
-            
-            let currentWidth = img.width;
-            let currentHeight = img.height;
-            let currentDataUrl = imgObj.dataUrl;
-            let currentSize = Math.ceil(currentDataUrl.length * 0.75);
-            
-            const originalWidth = currentWidth;
-            const originalHeight = currentHeight;
-            const originalSize = currentSize;
+            await new Promise((resolve) => img.onload = resolve);
+            let cw = img.width, ch = img.height;
+            let cdata = imgObj.dataUrl;
+            let csize = Math.ceil(cdata.length * 0.75);
+            const ow = cw, oh = ch, os = csize;
 
             if (options.dimensionLimitEnabled) {
                 let scale = 1;
-                if (options.maxWidthPx !== null && currentWidth > options.maxWidthPx) scale = Math.min(scale, options.maxWidthPx / currentWidth);
-                if (options.maxHeightPx !== null && currentHeight > options.maxHeightPx) scale = Math.min(scale, options.maxHeightPx / currentHeight);
-                if (options.minWidthPx !== null && currentWidth < options.minWidthPx) scale = Math.max(scale, options.minWidthPx / currentWidth);
-                if (options.minHeightPx !== null && currentHeight < options.minHeightPx) scale = Math.max(scale, options.minHeightPx / currentHeight);
-                
+                if (options.maxWidthPx && cw > options.maxWidthPx) scale = Math.min(scale, options.maxWidthPx / cw);
+                if (options.maxHeightPx && ch > options.maxHeightPx) scale = Math.min(scale, options.maxHeightPx / ch);
                 if (scale !== 1) {
-                    currentWidth = Math.max(10, Math.floor(currentWidth * scale));
-                    currentHeight = Math.max(10, Math.floor(currentHeight * scale));
+                    cw = Math.floor(cw * scale); ch = Math.floor(ch * scale);
                     const canvas = document.createElement('canvas');
-                    canvas.width = currentWidth;
-                    canvas.height = currentHeight;
-                    canvas.getContext('2d').drawImage(img, 0, 0, currentWidth, currentHeight);
-                    currentDataUrl = canvas.toDataURL('image/jpeg', 0.95);
-                    currentSize = Math.ceil(currentDataUrl.length * 0.75);
-                    img = new Image();
-                    img.src = currentDataUrl;
-                    await new Promise((resolve) => { img.onload = resolve; });
+                    canvas.width = cw; canvas.height = ch;
+                    canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+                    cdata = canvas.toDataURL('image/jpeg', 0.95);
+                    csize = Math.ceil(cdata.length * 0.75);
+                    img = new Image(); img.src = cdata;
+                    await new Promise((resolve) => img.onload = resolve);
                 }
             }
 
-            let finalQuality = 0.95;
-            if (options.sizeLimitEnabled && options.maxSizeKB !== null && currentSize > options.maxSizeKB * 1024) {
-                let quality = 0.9;
-                while (currentSize > options.maxSizeKB * 1024 && quality > 0.1 && finalQuality > 0.1) {
-                    quality -= 0.05;
+            if (options.sizeLimitEnabled && options.maxSizeKB && csize > options.maxSizeKB * 1024) {
+                let q = 0.9;
+                while (csize > options.maxSizeKB * 1024 && q > 0.1) {
+                    q -= 0.05;
                     const canvas = document.createElement('canvas');
-                    canvas.width = currentWidth;
-                    canvas.height = currentHeight;
+                    canvas.width = cw; canvas.height = ch;
                     canvas.getContext('2d').drawImage(img, 0, 0);
-                    currentDataUrl = canvas.toDataURL('image/jpeg', quality);
-                    currentSize = Math.ceil(currentDataUrl.length * 0.75);
-                    finalQuality = quality;
+                    cdata = canvas.toDataURL('image/jpeg', q);
+                    csize = Math.ceil(cdata.length * 0.75);
                 }
             }
-
-            return {
-                name: imgObj.file.name,
-                dataUrl: currentDataUrl,
-                size: currentSize,
-                originalSize: originalSize,
-                width: currentWidth,
-                height: currentHeight,
-                originalWidth: originalWidth,
-                originalHeight: originalHeight
-            };
+            return { name: imgObj.file.name, dataUrl: cdata, size: csize, originalSize: os, width: cw, height: ch, originalWidth: ow, originalHeight: oh };
         }
 
         async function resizeAll() {
-            if (resizeImages.length === 0) {
-                showResizeStatus('Please add images first', 'error');
-                return;
-            }
-
+            if (resizeImages.length === 0) { showResizeStatus('Add images first', 'error'); return; }
             const options = {
                 sizeLimitEnabled: enableSizeLimit.checked,
                 dimensionLimitEnabled: enableDimensionLimit.checked,
-                minSizeKB: null, maxSizeKB: null,
-                minWidthPx: null, minHeightPx: null, maxWidthPx: null, maxHeightPx: null
+                maxSizeKB: parseFloat(document.getElementById('maxSize').value),
+                maxWidthPx: parseFloat(document.getElementById('maxWidth').value),
+                maxHeightPx: parseFloat(document.getElementById('maxHeight').value)
             };
-
-            if (options.sizeLimitEnabled) {
-                const minV = parseFloat(minSize.value);
-                const maxV = parseFloat(maxSize.value);
-                if (!isNaN(minV)) options.minSizeKB = getValueInKB(minV, minSizeUnit.value);
-                if (!isNaN(maxV)) options.maxSizeKB = getValueInKB(maxV, maxSizeUnit.value);
-            }
-
-            if (options.dimensionLimitEnabled) {
-                const minW = parseFloat(minWidth.value), minH = parseFloat(minHeight.value);
-                const maxW = parseFloat(maxWidth.value), maxH = parseFloat(maxHeight.value);
-                if (!isNaN(minW) && !isNaN(minH)) {
-                    options.minWidthPx = convertToPixels(minW, minDimensionUnit.value);
-                    options.minHeightPx = convertToPixels(minH, minDimensionUnit.value);
-                }
-                if (!isNaN(maxW) && !isNaN(maxH)) {
-                    options.maxWidthPx = convertToPixels(maxW, maxDimensionUnit.value);
-                    options.maxHeightPx = convertToPixels(maxH, maxDimensionUnit.value);
-                }
-            }
-
-            resizeBtn.disabled = true;
-            resizeProgressBar.classList.add('show');
-            showResizeStatus('Processing...', 'info');
-
+            resizeBtn.disabled = true; resizeProgressBar.classList.add('show');
             try {
                 const results = [];
                 for (let i = 0; i < resizeImages.length; i++) {
-                    updateResizeProgress((i / resizeImages.length) * 100);
+                    resizeProgressFill.style.width = (i/resizeImages.length*100)+'%';
                     results.push(await processSingleResize(resizeImages[i], options));
                 }
-                updateResizeProgress(100);
-
                 if (resizeMode === 'single') {
                     const r = results[0];
                     resizeResult.innerHTML = `
-                        <div style="text-align: center;"><span class="success-badge">✅ Resized Successfully!</span></div>
+                        <div style="text-align: center;"><span class="success-badge">✅ Resized!</span></div>
                         <table class="result-table">
                             <tr><td>Original:</td><td>${formatSize(r.originalSize)} (${r.originalWidth}x${r.originalHeight})</td></tr>
                             <tr><td>Final:</td><td><strong>${formatSize(r.size)} (${r.width}x${r.height})</strong></td></tr>
                         </table>
-                        <button onclick="downloadFile('${r.dataUrl}', 'resized_${r.name}')" class="btn-success" style="width: 100%;">📥 Download</button>
+                        <button onclick="downloadFile('${r.dataUrl}', 'resized_${r.name}')" class="btn-success" style="width:100%;">📥 Save to Device</button>
                     `;
                 } else {
-                    let totalOrig = 0, totalFinal = 0;
-                    results.forEach(r => { totalOrig += r.originalSize; totalFinal += r.size; });
+                    let to = 0, tf = 0; results.forEach(r => { to += r.originalSize; tf += r.size; });
                     resizeResult.innerHTML = `
-                        <div style="text-align: center;"><span class="success-badge">✅ Batch Processed!</span></div>
-                        <p style="font-size: 13px; margin: 10px 0; font-weight: 600;">Processed ${results.length} images. Total Saved: ${((totalOrig-totalFinal)/totalOrig*100).toFixed(1)}%</p>
-                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 12px; background: white;">
-                            ${results.map(r => {
-                                const diff = r.size - r.originalSize;
-                                const percent = ((diff / r.originalSize) * 100).toFixed(1);
-                                const isOptimized = diff <= 0;
-                                return `
-                                <div class="batch-download-item" style="flex-direction: column; align-items: stretch; gap: 5px; border-bottom: 1px solid #f0f0f0; padding: 12px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <span style="font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">${r.name}</span>
-                                        <a href="${r.dataUrl}" download="resized_${r.name}" class="download-link">Download</a>
+                        <div style="text-align: center;"><span class="success-badge">✅ Batch Done!</span></div>
+                        <p style="font-size:13px; margin:10px 0; font-weight:600;">Saved: ${((to-tf)/to*100).toFixed(1)}%</p>
+                        <div style="max-height:300px; overflow-y:auto; border:1px solid #eee; border-radius:12px; background:white;">
+                            ${results.map(r => `
+                                <div class="batch-download-item" style="flex-direction:column; align-items:stretch; padding:12px; border-bottom:1px solid #f0f0f0;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${r.name}</span>
+                                        <a href="#" onclick="downloadFile('${r.dataUrl}', 'resized_${r.name}'); return false;" class="download-link">Save</a>
                                     </div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #666;">
-                                        <span>Orig: ${formatSize(r.originalSize)}</span>
+                                    <div style="display:flex; justify-content:space-between; font-size:11px; color:#666;">
                                         <span>New: <strong>${formatSize(r.size)}</strong></span>
-                                        <span style="color: ${isOptimized ? '#28a745' : '#dc3545'}; font-weight: 600;">
-                                            ${isOptimized ? '📉 -' + Math.abs(percent) + '%' : '📈 +' + percent + '%'}
-                                        </span>
+                                        <span style="color:#28a745; font-weight:600;">📉 -${((r.originalSize-r.size)/r.originalSize*100).toFixed(1)}%</span>
                                     </div>
-                                </div>`;
-                            }).join('')}
+                                </div>
+                            `).join('')}
                         </div>
                     `;
                 }
-                resizeResult.classList.add('show');
-                showResizeStatus('Resize complete!', 'success');
-            } catch (err) {
-                showResizeStatus('Error: ' + err.message, 'error');
-            } finally {
-                resizeBtn.disabled = false;
-                setTimeout(() => resizeProgressBar.classList.remove('show'), 2000);
-            }
+                resizeResult.classList.add('show'); showResizeStatus('Complete!', 'success');
+            } catch (err) { showResizeStatus('Error: ' + err.message, 'error'); }
+            finally { resizeBtn.disabled = false; resizeProgressBar.classList.remove('show'); }
         }
 
-        async function downloadFile(url, name) {
-            // Check if running on Android/iOS via Capacitor
-            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-                try {
-                    const Filesystem = Capacitor.Plugins.Filesystem;
-                    const Share = Capacitor.Plugins.Share;
-                    
-                    // Convert blob/url to base64
-                    const response = await fetch(url);
-                    const blob = await response.blob();
-                    const reader = new FileReader();
-                    
-                    return new Promise((resolve) => {
-                        reader.onloadend = async () => {
-                            const base64Data = reader.result.split(',')[1];
-                            const fileName = name;
-                            
-                            const result = await Filesystem.writeFile({
-                                path: fileName,
-                                data: base64Data,
-                                directory: 'CACHE'
-                            });
-                            
-                            await Share.share({
-                                title: fileName,
-                                url: result.uri,
-                            });
-                            resolve();
-                        };
-                        reader.readAsDataURL(blob);
-                    });
-                } catch (e) {
-                    console.error('Native download failed', e);
-                }
+        document.getElementById('resizeUploadArea').onclick = () => resizeFileInput.click();
+        resizeFileInput.onchange = (e) => { 
+            if (e.target.files.length) {
+                const valid = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+                if (resizeMode === 'single') resizeImages = [new RotatableImage(valid[0])];
+                else valid.forEach(f => resizeImages.push(new RotatableImage(f)));
+                renderResizePreviews();
             }
-
-            // Fallback for Web/Browser
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = name;
-            link.click();
-        }
-
-        window.downloadFile = downloadFile;
-
-        function addResizeFiles(files) {
-            const valid = Array.from(files).filter(f => f.type.startsWith('image/'));
-            if (resizeMode === 'single' && valid.length > 0) {
-                resizeImages = [new RotatableImage(valid[0])];
-            } else {
-                valid.forEach(f => resizeImages.push(new RotatableImage(f)));
-            }
-            renderResizePreviews();
-            resizeResult.classList.remove('show');
-        }
-
-        resizeUploadArea.addEventListener('click', () => resizeFileInput.click());
-        resizeFileInput.addEventListener('change', (e) => { if (e.target.files.length) addResizeFiles(e.target.files); e.target.value = ''; });
-        resizeBtn.addEventListener('click', resizeAll);
-        clearResizeBtn.addEventListener('click', () => { resizeImages = []; renderResizePreviews(); resizeResult.classList.remove('show'); });
+            e.target.value = '';
+        };
+        resizeBtn.onclick = resizeAll;
+        document.getElementById('clearResizeBtn').onclick = () => { resizeImages = []; renderResizePreviews(); resizeResult.classList.remove('show'); };
 
         // ========== PDF RESIZE MODULE ==========
         let pdfResizeFiles = [];
-        let pdfResizeMode = 'single';
-
-        const pdfResizeUploadArea = document.getElementById('pdfResizeUploadArea');
-        const pdfResizeFileInput = document.getElementById('pdfResizeFileInput');
-        const pdfResizeList = document.getElementById('pdfResizeList');
         const pdfTargetMaxSize = document.getElementById('pdfTargetMaxSize');
-        const pdfTargetMaxSizeUnit = document.getElementById('pdfTargetMaxSizeUnit');
-        const resizePdfBtn = document.getElementById('resizePdfBtn');
-        const clearPdfResizeBtn = document.getElementById('clearPdfResizeBtn');
         const pdfResizeResult = document.getElementById('pdfResizeResult');
         const pdfResizeProgressBar = document.getElementById('pdfResizeProgressBar');
         const pdfResizeProgressFill = document.getElementById('pdfResizeProgressFill');
-        const pdfResizeStatus = document.getElementById('pdfResizeStatus');
 
         function togglePdfResizeMode() {
-            pdfResizeMode = document.querySelector('input[name="pdfResizeMode"]:checked').value;
-            pdfResizeFiles = [];
-            pdfResizeFileInput.multiple = (pdfResizeMode === 'batch');
-            document.getElementById('pdfResizeUploadText').textContent = (pdfResizeMode === 'batch') ? 'Tap to select multiple PDFs' : 'Tap to select a PDF file';
-            renderPdfResizeList();
-            pdfResizeResult.classList.remove('show');
-        }
-
-        function showPdfResizeStatus(msg, type) {
-            pdfResizeStatus.textContent = msg;
-            pdfResizeStatus.className = `status show ${type}`;
-            setTimeout(() => pdfResizeStatus.classList.remove('show'), 4000);
-        }
-
-        function updatePdfResizeProgress(percent) {
-            pdfResizeProgressFill.style.width = percent + '%';
+            pdfResizeFiles = []; document.getElementById('pdfResizeFileInput').multiple = (document.querySelector('input[name="pdfResizeMode"]:checked').value === 'batch');
+            renderPdfResizeList(); pdfResizeResult.classList.remove('show');
         }
 
         async function renderPdfResizeList() {
-            pdfResizeList.innerHTML = '';
-            if (pdfResizeFiles.length === 0) return;
-
-            for (let i = 0; i < pdfResizeFiles.length; i++) {
-                const f = pdfResizeFiles[i];
-                const item = document.createElement('div');
-                item.className = 'pdf-preview-item';
-                
-                let details = `<strong>${f.name}</strong> (${formatSize(f.size)})`;
-                if (f.pages) details += ` • ${f.pages} pages`;
-
-                item.innerHTML = `
-                    <div class="pdf-preview-info">${details}</div>
-                    <button class="remove-btn" style="position: static; margin-left: 10px;">✕</button>
-                `;
+            const list = document.getElementById('pdfResizeList'); list.innerHTML = '';
+            pdfResizeFiles.forEach((f, i) => {
+                const item = document.createElement('div'); item.className = 'pdf-preview-item';
+                item.innerHTML = `<div class="pdf-preview-info"><strong>${f.name}</strong> (${formatSize(f.size)}) ${f.pages ? '• '+f.pages+' p' : ''}</div><button class="remove-btn" style="position:static; margin-left:10px;">✕</button>`;
                 item.querySelector('.remove-btn').onclick = () => { pdfResizeFiles.splice(i, 1); renderPdfResizeList(); };
-                pdfResizeList.appendChild(item);
-            }
-        }
-
-        async function addPdfResizeFiles(files) {
-            const valid = Array.from(files).filter(f => f.type === 'application/pdf');
-            for (const file of valid) {
-                if (pdfResizeMode === 'single') {
-                    pdfResizeFiles = [{ file, name: file.name, size: file.size }];
-                } else {
-                    pdfResizeFiles.push({ file, name: file.name, size: file.size });
-                }
-                
-                const idx = pdfResizeFiles.length - 1;
-                try {
-                    const arr = await file.arrayBuffer();
-                    const doc = await pdfjsLib.getDocument(arr).promise;
-                    pdfResizeFiles[idx].pages = doc.numPages;
-                    pdfResizeFiles[idx].doc = doc;
-                } catch (e) { console.error(e); }
-            }
-            renderPdfResizeList();
+                list.appendChild(item);
+            });
         }
 
         async function processPdfResize(pdfObj, targetSizeKB) {
             if (!pdfObj.doc) return null;
-            const doc = pdfObj.doc;
-            const canvases = [];
-            
-            // Render all pages to canvases once
+            const doc = pdfObj.doc, canvases = [];
             for (let i = 1; i <= doc.numPages; i++) {
                 const page = await doc.getPage(i);
                 const vp = page.getViewport({ scale: 1.5 });
@@ -1621,123 +1266,82 @@
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
                 canvases.push(canvas);
             }
-
-            function getResult(q) {
+            function getRes(q) {
                 const imgs = canvases.map(c => c.toDataURL('image/jpeg', q));
-                let size = 0;
-                imgs.forEach(img => size += Math.ceil(img.split(',')[1].length * 0.75));
-                return { images: imgs, size: size / 1024 }; // size in KB
+                let s = 0; imgs.forEach(img => s += Math.ceil(img.split(',')[1].length * 0.75));
+                return { imgs, size: s / 1024 };
             }
-
-            let low = 0.05, high = 0.95, bestQ = 0.05;
-            let finalResult = getResult(bestQ);
-
-            // If even at lowest quality it exceeds target, we'll have to accept it
-            if (finalResult.size > targetSizeKB) {
-                // Try even lower if needed
-                bestQ = 0.01;
-                finalResult = getResult(bestQ);
-            } else {
-                // Binary search for best quality that stays under target
+            let low = 0.05, high = 0.95, bestQ = 0.05, final = getRes(bestQ);
+            if (final.size <= targetSizeKB) {
                 for (let i = 0; i < 7; i++) {
-                    let mid = (low + high) / 2;
-                    let res = getResult(mid);
-                    if (res.size <= targetSizeKB) {
-                        bestQ = mid;
-                        finalResult = res;
-                        low = mid;
-                    } else {
-                        high = mid;
-                    }
+                    let mid = (low + high) / 2, res = getRes(mid);
+                    if (res.size <= targetSizeKB) { bestQ = mid; final = res; low = mid; } else high = mid;
                 }
             }
-            
-            return { name: pdfObj.name, images: finalResult.images, finalSize: Math.round(finalResult.size * 1024) };
+            return { name: pdfObj.name, images: final.imgs, finalSize: Math.round(final.size * 1024) };
         }
 
-        resizePdfBtn.addEventListener('click', async () => {
-            if (pdfResizeFiles.length === 0) { showPdfResizeStatus('Please add PDF(s) first', 'error'); return; }
-            
+        document.getElementById('resizePdfBtn').onclick = async () => {
+            if (pdfResizeFiles.length === 0) return;
             const targetVal = parseFloat(pdfTargetMaxSize.value);
-            const targetKB = pdfTargetMaxSizeUnit.value === 'MB' ? targetVal * 1024 : targetVal;
-
-            resizePdfBtn.disabled = true;
+            const targetKB = document.getElementById('pdfTargetMaxSizeUnit').value === 'MB' ? targetVal * 1024 : targetVal;
             pdfResizeProgressBar.classList.add('show');
-            showPdfResizeStatus('Processing PDF(s)...', 'info');
-
             try {
                 const results = [];
                 for (let i = 0; i < pdfResizeFiles.length; i++) {
-                    updatePdfResizeProgress((i / pdfResizeFiles.length) * 100);
+                    pdfResizeProgressFill.style.width = (i/pdfResizeFiles.length*100)+'%';
                     results.push(await processPdfResize(pdfResizeFiles[i], targetKB));
                 }
-                updatePdfResizeProgress(100);
-
-                pdfResizeResult.innerHTML = `<div style="text-align: center;"><span class="success-badge">✅ Resizing Complete!</span></div>`;
-                const listDiv = document.createElement('div');
-                listDiv.style.maxHeight = '200px'; listDiv.style.overflowY = 'auto'; listDiv.style.marginTop = '10px';
-                
+                pdfResizeResult.innerHTML = `<div style="text-align:center;"><span class="success-badge">✅ Resized!</span></div>`;
+                const listDiv = document.createElement('div'); listDiv.style.maxHeight='200px'; listDiv.style.overflowY='auto';
                 results.forEach(r => {
-                    const item = document.createElement('div');
-                    item.className = 'batch-download-item';
-                    item.innerHTML = `<span style="font-size:12px;">${r.name} (${formatSize(r.finalSize)})</span><a href="#" class="download-link">Download</a>`;
-                    item.querySelector('a').onclick = (e) => {
-                        e.preventDefault();
-                        const html = createPrintHtml(r.images, formatSize(r.finalSize));
-                        const blob = new Blob([html], { type: 'text/html' });
-                        const url = URL.createObjectURL(blob);
-                        downloadFile(url, `resized_${r.name.replace('.pdf', '')}.html`);
-                        link.click();
+                    const item = document.createElement('div'); item.className='batch-download-item';
+                    item.innerHTML = `<span style="font-size:12px;">${r.name} (${formatSize(r.finalSize)})</span><a href="#" class="download-link">Save PDF</a>`;
+                    item.querySelector('a').onclick = async (e) => {
+                        e.preventDefault(); const { jsPDF } = window.jspdf; const doc = new jsPDF();
+                        r.images.forEach((img, idx) => {
+                            if (idx > 0) doc.addPage();
+                            const p = doc.getImageProperties(img);
+                            const pw = doc.internal.pageSize.getWidth();
+                            doc.addImage(img, 'JPEG', 0, 0, pw, (p.height * pw) / p.width);
+                        });
+                        const blob = doc.output('blob');
+                        downloadFile(URL.createObjectURL(blob), `resized_${r.name}`);
                     };
                     listDiv.appendChild(item);
                 });
-                pdfResizeResult.appendChild(listDiv);
-                pdfResizeResult.classList.add('show');
-                showPdfResizeStatus('Process complete!', 'success');
-            } catch (e) { showPdfResizeStatus('Error: ' + e.message, 'error'); }
-            finally { resizePdfBtn.disabled = false; setTimeout(() => pdfResizeProgressBar.classList.remove('show'), 2000); }
-        });
-
-        pdfResizeUploadArea.addEventListener('click', () => pdfResizeFileInput.click());
-        pdfResizeFileInput.addEventListener('change', (e) => { if (e.target.files.length) addPdfResizeFiles(e.target.files); e.target.value = ''; });
-        clearPdfResizeBtn.addEventListener('click', () => { pdfResizeFiles = []; renderPdfResizeList(); pdfResizeResult.classList.remove('show'); });
-
-        // Tab switching
-        window.switchTab = function(tab) {
-            const pdfTab = document.getElementById('pdfTab');
-            const resizeTab = document.getElementById('resizeTab');
-            const pdfResizeTab = document.getElementById('pdfResizeTab');
-            const tabs = document.querySelectorAll('.tab');
-            
-            pdfTab.classList.remove('active');
-            resizeTab.classList.remove('active');
-            pdfResizeTab.classList.remove('active');
-            tabs.forEach(t => t.classList.remove('active'));
-            
-            if (tab === 'pdf') {
-                pdfTab.classList.add('active');
-                tabs[0].classList.add('active');
-            } else if (tab === 'resize') {
-                resizeTab.classList.add('active');
-                tabs[1].classList.add('active');
-            } else if (tab === 'pdfResize') {
-                pdfResizeTab.classList.add('active');
-                tabs[2].classList.add('active');
-            }
+                pdfResizeResult.appendChild(listDiv); pdfResizeResult.classList.add('show');
+            } catch (e) { console.error(e); }
+            finally { pdfResizeProgressBar.classList.remove('show'); }
         };
 
-        // Initial setup
-        toggleResizeMode();
-        togglePdfResizeMode();
-        
-        console.log('Photo Tools Pro Loaded Successfully!');
+        document.getElementById('pdfResizeUploadArea').onclick = () => document.getElementById('pdfResizeFileInput').click();
+        document.getElementById('pdfResizeFileInput').onchange = async (e) => {
+            const valid = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
+            for (const file of valid) {
+                const pdfObj = { file, name: file.name, size: file.size };
+                try {
+                    const arr = await file.arrayBuffer();
+                    pdfObj.doc = await pdfjsLib.getDocument(arr).promise;
+                    pdfObj.pages = pdfObj.doc.numPages;
+                } catch (e) {}
+                pdfResizeFiles.push(pdfObj);
+            }
+            renderPdfResizeList(); e.target.value = '';
+        };
 
-        // Register Service Worker for PWA
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.content-card').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tab+'Tab').classList.add('active');
+            const idx = tab === 'pdf' ? 0 : tab === 'resize' ? 1 : 2;
+            document.querySelectorAll('.tab')[idx].classList.add('active');
+        };
+
+        toggleResizeMode(); togglePdfResizeMode();
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('service-worker.js')
-                    .then(reg => console.log('Service Worker registered'))
-                    .catch(err => console.log('Service Worker failed', err));
+                navigator.serviceWorker.register('service-worker.js').catch(() => {});
             });
         }
     </script>
