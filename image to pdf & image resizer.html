@@ -1075,12 +1075,9 @@
                     const html = createPrintHtml(imagesData, sizeDisplay);
                     const blob = new Blob([html], { type: 'text/html' });
                     const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `photos_${Date.now()}.html`;
-                    link.click();
+                    downloadFile(url, `photos_${Date.now()}.html`);
                     URL.revokeObjectURL(url);
-                    showPdfStatus('HTML file downloaded! Open and press Ctrl+P to save as PDF.', 'success');
+                    showPdfStatus('HTML file ready! Share to save or open and print as PDF.', 'success');
                 };
                 
                 updatePdfProgress(100);
@@ -1685,6 +1682,19 @@
                 tabs[1].classList.add('active');
             } else if (tab === 'pdfResize') {
                 pdfResizeTab.classList.add('active');
+                tabs[2].classList.add('active');
+            }
+        };
+
+        // Initial setup
+        toggleResizeMode();
+        togglePdfResizeMode();
+        
+        console.log('Photo Tools Pro Loaded Successfully!');
+    </script>
+</body>
+</html>
+);
                 tabs[2].classList.add('active');
             }
         };

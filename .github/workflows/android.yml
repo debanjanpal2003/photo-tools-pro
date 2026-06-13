@@ -8,6 +8,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Use the official GitHub variable for the Node 24 transition
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
@@ -26,31 +30,32 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Total Cleanup
+      - name: Total Environment Reset
+        # This removes all local conflicts and broken folders
         run: |
           rm -rf android
           rm -rf www
           rm -rf node_modules
           mkdir -p www
 
-      - name: Install Dependencies
+      - name: Install Project Dependencies
         run: |
           npm install
-          npm install @capacitor/core @capacitor/android
+          npm install @capacitor/core @capacitor/android @capacitor/filesystem @capacitor/share
           npm install -D @capacitor/cli
 
       - name: Prepare Assets
         run: |
-          # Find any HTML file and make it the main index
-          cp *.html www/index.html || echo "No HTML file found"
+          # Robust copy using wildcard to handle any filename
+          cp *.html www/index.html || echo "HTML file not found"
           ls -la www/
 
-      - name: Create Native Project
+      - name: Rebuild Native Project
         run: |
           npx cap add android
           npx cap sync android
 
-      - name: Build Final APK
+      - name: Build APK
         run: |
           cd android
           chmod +x gradlew
